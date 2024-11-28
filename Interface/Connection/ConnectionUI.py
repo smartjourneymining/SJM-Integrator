@@ -15,12 +15,14 @@ class ConnectionUI:
                                 row=3, column=0, text="neo4j")
 
         self.create_entry_field(master=master, textForDisplay="Password",
-                                row=3, column=2, symbols="*", text="Slaptazodis1")
+                                row=3, column=2, symbols="*", text="")
 
         self.Button = Button(master, text="Connect",
                              command=lambda: self.establishConnection(master))
 
         self.Button.grid(row=5, column=0, columnspan=3, pady=10)
+
+        master.minsize(100,100)
 
     def establishConnection(self, master):
         if (self.validate_url()):

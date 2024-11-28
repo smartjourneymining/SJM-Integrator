@@ -43,6 +43,7 @@ class Mapper:
         self.Finish.pack()
         self.import_setings.pack()
         master.geometry("{}x{}".format(1000, 800))
+        master.minsize(1000,800)
 
     def import_setings_from_file(self, master):
         self.fileToRead = filedialog.askopenfilename(initialdir="/",

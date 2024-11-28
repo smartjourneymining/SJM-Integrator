@@ -1,3 +1,4 @@
+from tkinter import messagebox
 from Interface.Connection.ConnectionUI import ConnectionUI
 from Interface.FileUpload.FileUploadUI import FileUploadUI
 from Interface.Mapper.mapper import Mapper
@@ -20,70 +21,7 @@ status = ""
 fileToRead = ""
 counter = 0
 
-listOfEmpty = ['SESSION_STARTED',
-'SESSION_ENDED',
-'FRONTPAGE_PARCEL_CARD',
-'PRODUCT_PAGE_VIEWED',
-'SELLER_LIST_PAGE_VIEWED',
-'SELLER_LIST_PAGE_CHANGED_SORT_METHOD',
-'SELLER_LIST_PAGE_CLICKED_SELLER',
-'REQUEST_CREATED',
-'REQUEST_1ST_REQUEST',
-'SEARCH_STARTED',
-'SEARCH_RESULTS_PAGE_CLICKED_BOOK',
-'SELLER_LIST_PAGE_TRIGGERED_PREVIEW_ELEMENT',
-'PRODUCT_PAGE_CLICKED_SEE_MORE_VERSIONS',
-'PRODUCT_PAGE_CLICKED_BOOK_IN_MORE_FROM_AUTHOR-CAROUSEL',
-'PRODUCT_ADDED_TO_LIKED_BOOKS_LIST',
-'PRODUCT_ADDED_TO_LIST',
-'PUBLIC_PROFILE_PAGE_VIEWED',
-'PUBLIC_PROFILE_CLICK_BOOK',
-'MORE_FROM_SELLER_PAGE_CLICKED_SKIP',
-'LISTING_PAGE_VIEWED',
-'PRODUCT_SCANNED',
-'LISTING_PAGE_CLICKED_SELL_THIS_BOOK',
-'LISTING_CREATED',
-'LISTING_DETAILS_PAGE_ADDED_LISTING_DATA',
-'LISTING_SUCCESS_PAGE_CLICKED_SELL_MORE',
-'REQUEST_ACCEPTED',
-'PRODUCT_ADDED_TO_WANTED_LIST',
-'SIGN_UP_DONE',
-'PRODUCT_ADDED_TO_CART',
-'REQUEST_REMOVED_PRODUCT',
-'AUTH_PAGE_CLICKED_EMAIL_LOGIN',
-'AUTH_PAGE_CLICKED_SOCIAL_LOGIN',
-'HELP_WIDGET__CLICKED',
-'REQUEST_DECLINED',
-'HOME_PAGE_CLICKED_BOOK_IN_CAROUSEL',
-'SEARCH_RESULTS_PAGE_APPLIED_FILTER',
-'LISTING_PAGE_CLICKED_VIEW_SELLING_GUIDE',
-'BUY_USED_PICK_BOOK_FROM_PRIVIEW',
-'PRODUCT_PAGE_CLICKED_PRODUCT_IN_YOU_MIGHT_ALSO_LIKE-CAROUSEL',
-'MESSAGING_RECEIVED_CALLOUT_LISTING_PROMPT',
-'PDP_CLICK_AUTHOR',
-'WANTED_LIST_MATCH_FOUND_TEST',
-'WANTED_LIST_MATCH_FOUND',
-'PDP_OTHER_VERSION_BUYBOX',
-'FRONTPAGE_BANNER',
-'LISTING_PAGE_CREATE_A_NEW_BOOK',
-'STRIPE_ID_VERIFICATION_COMPLETED',
-'ARTICLE_BANNER_CTA',
-'BLOG_ARTICLE_PAGE_VIEWED',
-'ARTICLE_CAROUSEL',
-'ELEMENT_CLICKED',
-'MORE_FROM_SELLER_PAGE_VIEWED',
-'CHECKOUT_PAGE_VIEWED',
-'CHECKOUT_STEP_2/2_PAGE_VIEWED',
-'AUTH_PAGE_VIEWED',
-'PDP_LEAVE_REVIEW',
-'FORSALESHARE',
-'LOGIN_MIGRATION_STARTED',
-'LOGIN_MIGRATION_SUCCESSFULL',
-'LISTSHARE',
-'PRODUCT_PAGE_CLICKED_MORE_VERSIONS',
-'PDPSHARE',
-'SELLER_LISTING_SELECTED',
-'MESSAGING_VERIFY_YOUR_STRIPE_ACCOUNT_REMINDER']
+listOfEmpty = []
 
 
 def create_log(connector, logs, mapping, session,
@@ -491,13 +429,14 @@ def main():
     connector = connectUI.get_connector()
     
     if fileUploadUI.getFileLocation() != "" and \
-       xmlschema.is_valid(fileUploadUI.getFileLocation(), '.\Xes.xsd'):
+        xmlschema.is_valid(fileUploadUI.getFileLocation(), '.\Xes.xsd'):
         logs2 = pm4py.read_xes(fileUploadUI.getFileLocation())
 
         mapper = Mapper(master, "Test", logs2.columns)
         master.mainloop()
 
         file_name = fileUploadUI.getFileName()
+        
         time_stamp = int(time.time())
         actor, event, logs, objects, rating = mapper.actor, mapper.event, mapper.logs, mapper.objects, mapper.rating
 
@@ -505,50 +444,52 @@ def main():
         selector = TimeSelector(master, event)
         datefields = selector.fieldList
         master.mainloop()
-        for index, row in logs2.iterrows():
-            with connector.driver.session() as session:
-                create_log(connector, row, logs,
-                           session, file_name, time_stamp, rating)
-                
-                listOfJourneys.append(row["case:journey"])
+        try:
+            for index, row in logs2.iterrows():
+                with connector.driver.session() as session:
+                    create_log(connector, row, logs,
+                               session, file_name, time_stamp, rating)
 
-                create_entities(connector, row,
-                                event, session,
-                                datefields, rating, logs, objects)
+                    listOfJourneys.append(row["case:journey"])
 
-                create_actors(connector, row,
-                              actor, session, event)
+                    create_entities(connector, row,
+                                    event, session,
+                                    datefields, rating, logs, objects)
 
-                create_connection_between_actor_event(connector,
-                                                      row,
-                                                      actor,
-                                                      "Sender",
-                                                      session, event)
-                if(not(pd.isna(row["channel"]))):
+                    create_actors(connector, row,
+                                  actor, session, event)
+
                     create_connection_between_actor_event(connector,
                                                           row,
                                                           actor,
-                                                          "Receiver",
+                                                          "Sender",
                                                           session, event)
+                    if(not(pd.isna(row["channel"]))):
+                        create_connection_between_actor_event(connector,
+                                                              row,
+                                                              actor,
+                                                              "Receiver",
+                                                              session, event)
 
-                connector.create_directly_follows_tx(row["case:journey"],
-                                                     session)
-                create_connection_between_toucpoint_log(connector,
-                                                        row,
-                                                        logs,
-                                                        session, event)
-        listOfJourneys = list(set(listOfJourneys))
-        with connector.driver.session() as session:
-            connector.direct_follows_fix(session)
-            for journey in listOfJourneys:
-                connector.has_to_events(session)
-            connector.removeNullDF(session)
-            print(mapper)
-            attributesToRemove = getToRemoveAttributes(mapper)
-            connector.removePropertiesOfActors(session, attributesToRemove)
-
+                    connector.create_directly_follows_tx(row["case:journey"],
+                                                         session)
+                    create_connection_between_toucpoint_log(connector,
+                                                            row,
+                                                            logs,
+                                                            session, event)
+            listOfJourneys = list(set(listOfJourneys))
+            with connector.driver.session() as session:
+                connector.direct_follows_fix(session)
+                for journey in listOfJourneys:
+                    connector.has_to_events(session)
+                connector.removeNullDF(session)
+                print(mapper)
+                attributesToRemove = getToRemoveAttributes(mapper)
+                connector.removePropertiesOfActors(session, attributesToRemove)
+        except Exception as e:
+            messagebox.showerror("Error occured", "Upload has stoped due to:" + e)
     else:
-        print("XML is not complient with XSD")
+          messagebox.showerror("Error occured", "XML is not complient with XSD")
 
 
 if __name__ == "__main__":
