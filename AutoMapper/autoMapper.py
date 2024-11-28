@@ -56,7 +56,7 @@ def check_field_belongs(field):
                                                     event_identifier_parts)
     print(identifier, foreign_key)
     if (similarity_to_actor <= similarity_to_event and similarity_to_actor <= similarity_to_log):
-        return "Actor", identifier, foreign_key
+        return "Entity", identifier, foreign_key
     elif (similarity_to_log <= similarity_to_event and similarity_to_log <= similarity_to_actor):
         return "Log", identifier, foreign_key
     else:

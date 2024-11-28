@@ -56,7 +56,7 @@ class Mapper:
                 file_content = outfile.read()
             json_parse = json.loads(file_content)
             self.converted = {}
-            actor = [field(**e) for e in json_parse["Actor"]]
+            actor = [field(**e) for e in json_parse["Entity"]]
             event = [field(**e) for e in json_parse["Event"]]
             logs = [field(**e) for e in json_parse["Log"]]
             rating = [field(**e) for e in json_parse["Rating"]]
@@ -102,7 +102,7 @@ class Mapper:
 
     def create_dropdown(self, select_frame, text, column, rowVisualization, setValue=""):
         values = ["",
-                  "Actor",
+                  "Entity",
                   "Event",
                   "Log",
                   "Rating",
@@ -222,11 +222,11 @@ class Mapper:
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def enable_receiver_sender_dropdown(self, row, entry2, actor):
-        if (not actor.winfo_ismapped()) and (row.get() == "Actor"
-                                             or entry2.get() == "Actor"):
+        if (not actor.winfo_ismapped()) and (row.get() == "Entity"
+                                             or entry2.get() == "Entity"):
             actor.grid()
-        elif actor.winfo_ismapped() and not (row.get() == "Actor"
-                                             or entry2.get() == "Actor"):
+        elif actor.winfo_ismapped() and not (row.get() == "Entity"
+                                             or entry2.get() == "Entity"):
             actor.grid_remove()
 
     def enableForeigKeyDropDown(self, row):
@@ -237,7 +237,7 @@ class Mapper:
 
     def convert_inputs_to_object(self, master):
         self.converted = {}
-        self.converted["Actor"] = []
+        self.converted["Entity"] = []
         self.converted["Event"] = []
         self.converted["Log"] = []
         self.converted["Rating"] = []
@@ -258,7 +258,7 @@ class Mapper:
                     self.converted[place] = touchpoint(mapping)
 
         structure = {
-            'Actor': [elem.__dict__ for elem in self.converted["Actor"]],
+            'Actor': [elem.__dict__ for elem in self.converted["Entity"]],
             'Event': [elem.__dict__ for elem in self.converted["Event"]],
             'Log': [elem.__dict__ for elem in self.converted["Log"]],
             'Rating': [elem.__dict__ for elem in self.converted["Rating"]],

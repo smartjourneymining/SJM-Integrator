@@ -10,17 +10,17 @@ class field:
     identifier: bool
     foreign_key: bool
     to_type: str
-    actor_type: str
+    entity_type: str
 
     def __init__(self, name, type_map,
                  identifier, foreign_key,
-                 to_type, actor_type=np.nan):
+                 to_type, entity_type=np.nan):
         self.name = name
         self.type_map = type_map
         self.identifier = identifier
         self.foreign_key = foreign_key
         self.to_type = to_type
-        self.actor_type = actor_type
+        self.entity_type = entity_type
 
 
 class ArrayIterator:

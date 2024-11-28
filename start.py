@@ -143,13 +143,13 @@ def get_array_idefiying_fields(mapping, from_type, to_type,
     if (mapping.check_if_array_has_identifier()):
         fields_to_map = [m for m in event if m.to_type == to_type
                          and m.foreign_key == 1
-                         and (m.actor_type == type_of_connection
-                              or m.actor_type == "Both")]
+                         and (m.entity_type == type_of_connection
+                              or m.entity_type == "Both")]
 
     else:
         fields_to_map = [m for m in mapping if m.identifier == 1
-                         and (m.actor_type == type_of_connection
-                              or m.actor_type == "Both")]
+                         and (m.entity_type == type_of_connection
+                              or m.entity_type == "Both")]
 
     return fields_to_map
 
@@ -203,13 +203,13 @@ def get_where_clause_to_find_node(log, mapping, node_type):
     return query
 
 
-def get_query_using_array(array, log, actor_type, equal_sign=False):
+def get_query_using_array(array, log, entity_type, equal_sign=False):
     insert = ""
     alias = "e." if equal_sign else ""
     sign = "=" if equal_sign else ":"
 
-    fields = [m for m in array if m.actor_type == actor_type
-              or m.actor_type == "Both"]
+    fields = [m for m in array if m.entity_type == entity_type
+              or m.entity_type == "Both"]
 
     for index, i in enumerate(fields):
         if check_if_string_is_not_None(log[i.name]):
@@ -223,18 +223,18 @@ def get_query_using_array(array, log, actor_type, equal_sign=False):
     return insert
 
 
-def get_other_type_keys(mapping, log, current_actor_type,
-                        previous_actor_type, event, equal_sign=False):
+def get_other_type_keys(mapping, log, current_entity_type,
+                        previous_entity_type, event, equal_sign=False):
     mock_other_type_keys = ""
     alias = "e." if equal_sign else ""
     sign = "=" if equal_sign else ":"
 
     if (mapping.check_if_array_has_identifier()):
-        insert_elements = [m for m in event if m.to_type == "Actor"]
+        insert_elements = [m for m in event if m.to_type == "Entity"]
         keys = [m for m in insert_elements
-                if m.actor_type == previous_actor_type]
+                if m.entity_type == previous_entity_type]
         values = [m for m in insert_elements
-                  if m.actor_type == current_actor_type]
+                  if m.entity_type == current_entity_type]
 
         for index, i in enumerate(keys):
             mock_other_type_keys = mock_other_type_keys + alias + i.name \
@@ -252,35 +252,35 @@ def check_if_node_exists(connector, query, session):
 
 
 def get_actor_insert_value_str(log, mapping,
-                               event, actor_type,
+                               event, entity_type,
                                connnector, session):
     insert = ""
     user_type = ""
 
     if (mapping.check_if_array_has_identifier()):
-        insert_elements = [m for m in event if m.to_type == "Actor"]
-        insert = get_query_using_array(insert_elements, log, actor_type)
+        insert_elements = [m for m in event if m.to_type == "Entity"]
+        insert = get_query_using_array(insert_elements, log, entity_type)
 
     node_exists = check_if_node_exists(connnector, insert, session)
     sign = "=" if node_exists else ":"
 
     if node_exists:
-        insert = get_query_using_array(insert_elements, log, actor_type, True)
+        insert = get_query_using_array(insert_elements, log, entity_type, True)
     if len(insert) > 0 and mapping.getLength() > 0:
         insert = insert + ", "
 
-    user_to_pick = "initiator" if actor_type == "Sender" else "receiver"
+    user_to_pick = "initiator" if entity_type == "Sender" else "receiver"
 
     insert = insert + get_query_using_array(mapping,
                                             log,
-                                            actor_type,
+                                            entity_type,
                                             node_exists)
-    actor_type_alternative = "Receiver" if actor_type == 'Sender' else "Sender"
+    entity_type_alternative = "Receiver" if entity_type == 'Sender' else "Sender"
 
     mock_values = get_other_type_keys(mapping,
                                       log,
-                                      actor_type,
-                                      actor_type_alternative,
+                                      entity_type,
+                                      entity_type_alternative,
                                       event,
                                       node_exists)
     
@@ -299,13 +299,13 @@ def get_actor_insert_value_str(log, mapping,
     return insert, node_exists
 
 
-def get_actors_Identifier(log, mapping, actor_type, event):
+def get_actors_Identifier(log, mapping, entity_type, event):
     reuquest = ""
     if (mapping.check_if_array_has_identifier()):
-        insert_elements = [m for m in event if m.to_type == "Actor"]
-        fields = [m for m in insert_elements if (m.actor_type == actor_type
-                  or m.actor_type == "Both")
-                  and m.to_type == "Actor"]
+        insert_elements = [m for m in event if m.to_type == "Entity"]
+        fields = [m for m in insert_elements if (m.entity_type == entity_type
+                  or m.entity_type == "Both")
+                  and m.to_type == "Entity"]
 
         for index, f in enumerate(fields):
             reuquest = reuquest + f.name + ":'" + str(log[f.name]) +"'" # check main field to make sure it is not nan, if nan skip
@@ -362,7 +362,7 @@ def getToRemoveAttributes(mapper):
     deleteTo = ""
     first = True
     for fieldId in mapper.event:
-        if fieldId.to_type == "Actor":
+        if fieldId.to_type == "Entity":
             if not first:
                 deleteTo += ","
             deleteTo += "n."+ fieldId.name
@@ -388,7 +388,7 @@ def create_connection_between_actor_event(connector,
 
     query = get_where_clause_to_match_other_node(mapping,
                                                  "Event",
-                                                 "Actor",
+                                                 "Entity",
                                                  type_of_connection,
                                                  log,
                                                  event)

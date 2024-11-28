@@ -1,8 +1,8 @@
 {
-    "Actor": [
+    "Entity": [
         {
             "name": "initiator",
-            "type_map": "Actor",
+            "type_map": "Entity",
             "identifier": 0,
             "foreign_key": 0,
             "to_type": "",
@@ -10,7 +10,7 @@
         },
         {
             "name": "receiver",
-            "type_map": "Actor",
+            "type_map": "Entity",
             "identifier": 0,
             "foreign_key": 0,
             "to_type": "",
@@ -31,7 +31,7 @@
             "type_map": "Event",
             "identifier": 0,
             "foreign_key": 1,
-            "to_type": "Actor",
+            "to_type": "Entity",
             "actor_type": "Sender"
         },
         {
@@ -47,7 +47,7 @@
             "type_map": "Event",
             "identifier": 0,
             "foreign_key": 1,
-            "to_type": "Actor",
+            "to_type": "Entity",
             "actor_type": "Receiver"
         },
         {
