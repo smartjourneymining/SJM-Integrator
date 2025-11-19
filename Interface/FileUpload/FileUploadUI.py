@@ -1,16 +1,18 @@
 from tkinter import Button, Label, filedialog
+import os
 
 
 class FileUploadUI:
     def __init__(self, master):
+        self.fileToRead = ""  # Initialize to empty string in case user exits without selecting
         self.createMainWindow(master)
         master.minsize(100,100)
 
     def createDialog(self, master):
-        self.fileToRead = filedialog.askopenfilename(initialdir="/",
+        self.fileToRead = filedialog.askopenfilename(initialdir=os.getcwd(),
                                                      title="Select file",
-                                                     filetypes=(("XES files", "*.XES"),
-                                                                ("Comma-Separated Vlues", "*.CSV"),
+                                                     filetypes=(("XES files", ["*.xes", "*.XES"]),
+                                                                ("CSV files", ["*.csv", "*.CSV"]),
                                                                 ("all files", "*.*")))
         if self.fileToRead != "":
             master.destroy()
@@ -20,7 +22,7 @@ class FileUploadUI:
 
     def createMainWindow(self, master):
         master.title("Integrator log upload")
-        self.label = Label(master, text="Please select XES file")
+        self.label = Label(master, text="Please select XES or CSV file")
         self.label.grid(row=0, columnspan=3)
         self.button_file_explorer = Button(master, text="Browse files",
                                            command=lambda: self.createDialog(master))
@@ -34,4 +36,16 @@ class FileUploadUI:
         return self.fileToRead
 
     def getFileName(self):
-        return self.fileToRead.split("/")[-1]
+        return os.path.basename(self.fileToRead)
+    
+    def isCsvFile(self):
+        """Check if the selected file is a CSV file"""
+        if self.fileToRead == "":
+            return False
+        return self.fileToRead.lower().endswith('.csv')
+    
+    def isXesFile(self):
+        """Check if the selected file is an XES file"""
+        if self.fileToRead == "":
+            return False
+        return self.fileToRead.lower().endswith('.xes')

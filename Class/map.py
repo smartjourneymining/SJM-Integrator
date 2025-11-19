@@ -50,7 +50,6 @@ class map:
         self.index = 0
 
     def __iter__(self):
-        print(self.dataFields)
         return ArrayIterator(self.dataFields)
 
     def get_field_string(self, log):

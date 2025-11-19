@@ -6,7 +6,10 @@ def get_value_To_string(logValue):
         return str(logValue)
 
     elif type(logValue) is str:
-        return f'''"{logValue}"'''
+        # Escape double quotes with backslashes for Cypher/Neo4j compatibility
+        # Also escape backslashes themselves to prevent issues
+        escaped_value = logValue.replace('\\', '\\\\').replace('"', '\\"')
+        return f'''"{escaped_value}"'''
 
 
 def remove_case_append(string):

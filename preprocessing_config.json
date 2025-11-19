@@ -1,0 +1,62 @@
+{
+    "mappings": {
+        "channel": "*.properties.channel",
+        "initiatorsLabel": "*.properties.sender",
+        "initiator": "*.uuid",
+        "initiatorID": "*.uuid",
+        "initiatorLabel": "*.properties.sender",
+        "timestamp": "*.timestamp",
+        "EventType": "*.event",
+        "case:enduser": "*.uuid",
+        "case:journey": "*.uuid",
+        "receiver": "*.uuid",
+        "receiverLabel": "*.properties.subject",
+        "receiversID": "*.uuid",
+        "receiversLabel": "*.properties.subject"
+    },
+    "static_values": {
+        "case:LogID": "L1",
+        "initiator": "bookis",
+        "initiatorID": "bookis",
+        "initiatorLabel": "bookis",
+        "initiatorsLabel": "bookis"
+    },
+    "auto_generate": {
+        "Id": "Auto-increment (numeric)"
+    },
+    "skip_fields": [
+        "dateStart",
+        "ObjectCreator",
+        "Deltadate",
+        "ObjectSize",
+        "case:Analysis",
+        "ratingComment",
+        "dateReceiver",
+        "ratingScore",
+        "case:journeyStatus",
+        "dateCompleted",
+        "case:reference",
+        "case:journeyTitle",
+        "dateOriginated",
+        "case:journeyShortSummary",
+        "case:AnalysisPrediction",
+        "ObjectName",
+        "Duration",
+        "case:experineceDescription",
+        "dateConsumed",
+        "case:journeyLongSummary",
+        "case:experienceRating",
+        "case:compliance"
+    ],
+    "csv_columns": [
+        "*.event",
+        "*.timestamp",
+        "*.uuid",
+        "*.properties.subject",
+        "*.properties.channel",
+        "*.properties.sender",
+        "*.properties.$current_url",
+        "*.properties.$pathname",
+        "*.properties.$set.$current_url"
+    ]
+}

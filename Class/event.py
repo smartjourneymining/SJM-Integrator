@@ -7,5 +7,4 @@ class touchpoint(map):
         super().__init__(fields)
 
     def __iter__(self):
-        print(self.dataFields)
         return ArrayIterator(self.dataFields)

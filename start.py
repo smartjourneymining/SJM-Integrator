@@ -1,6 +1,7 @@
 from tkinter import messagebox
 from Interface.Connection.ConnectionUI import ConnectionUI
 from Interface.FileUpload.FileUploadUI import FileUploadUI
+from Interface.Preprocessor.PreprocessorUI import PreprocessorUI
 from Interface.Mapper.mapper import Mapper
 from Interface.TimeSelector.TimeSelector import TimeSelector
 import Xes
@@ -10,6 +11,7 @@ import pm4py
 import pandas as pd
 import time
 import numpy as np
+import os
 from Functions.StringManipulation import get_value_To_string, check_if_string_is_not_None, remove_case_append
 from Class.log import log
 from Class.objects import objects
@@ -53,8 +55,14 @@ def append_log_metadata(string_of_values, log):
 
 
 def create_subevent(connector, log, mapping, field, session):
+    # Include all primary keys from Event mapping to ensure proper matching with Touchpoints
+    primary_keys = mapping.get_primary_keys()
+    primary_key_string = ""
+    if primary_keys.getLength() > 0:
+        primary_key_string = ", " + primary_keys.get_field_string(log)
+    
     node = f'''TimeStampType:"{field}", TimeStamp:"{log[field]}", Id:"{log["Id"]}"
-                                    , journey:"{log["case:journey"]}", Label:"{log["EventType"]}"'''
+                                    , journey:"{log["case:journey"]}", Label:"{log["EventType"]}"{primary_key_string}'''
     connector.create_subevent(node, session)
 
 
@@ -87,18 +95,34 @@ def create_entities(connector, log, mapping, session, timestampNames, rating, jo
             is_planned = log['case:isPlanned']
     except: 
         is_planned = False
+    
+    # Create Event nodes for each timestamp field
+    event_created = False
     for field in timestampNames:
         if field in log:
             if not (pd.isnull(log[field])) and not (is_planned):
                 create_subevent(connector, log, mapping, field, session)
+                event_created = True
+    
+    # If no timestamp fields, create a main Event node without timestamp
+    if not event_created and not is_planned:
+        primary_keys = mapping.get_primary_keys()
+        primary_key_string = ""
+        if primary_keys.getLength() > 0:
+            primary_key_string = ", " + primary_keys.get_field_string(log)
+        
+        event_node = f'''Id:"{log["Id"]}", journey:"{log["case:journey"]}", Label:"{log["EventType"]}"{primary_key_string}'''
+        connector.create_subevent(event_node, session)
 
     if(log['initiatorsLabel'] not in listOfEmpty):
         connector.create_class(append_log_metadata(
             mapping.get_field_string(log),
             log), session, is_planned)
 
-    connector.create_class_event_relationship(log["Id"],
-                                              log["case:journey"], session)
+    # Use primary keys from Event mapping to match Events to Touchpoints
+    primary_keys = mapping.get_primary_keys()
+    connector.create_class_event_relationship(
+        log, primary_keys, log["case:journey"], session)
 
     if(not(pd.isna(log["channel"]))):
         connector.create_communication_node(session, log["channel"])
@@ -156,6 +180,10 @@ def get_array_idefiying_fields(mapping, from_type, to_type,
 
 def construct_where_clause(fields_to_map, fields_from_map):
     query = ""
+    if not fields_to_map or not fields_from_map:
+        print(f"    [WARN] Empty field mapping in WHERE clause construction")
+        return query
+    
     for indexi, i in enumerate(fields_to_map):
         for index, j in enumerate(fields_from_map):
             query = query + "e." + i.name.replace("case:", "") \
@@ -189,17 +217,21 @@ def get_where_clause_to_match_other_node(
 
 
 def get_where_clause_to_find_node(log, mapping, node_type):
-    query = ""
+    query = ""    
     fields = [m for m in mapping if m.identifier == 1]
+    
+    if not fields:
+        return query
+    
     for index, i in enumerate(fields):
-
-        query = query + "e." + i.name \
-                 + " = " \
-                 + get_value_To_string(log[i.name])
-
-        if index != len(fields) - 1:
-            query = query + ", "
-
+        # Check if field exists in log and has a value
+        if i.name in log and not pd.isna(log[i.name]) and log[i.name] != "":
+            if query:  # Add AND if not first field
+                query = query + " AND "
+            query = query + "e." + i.name \
+                     + " = " \
+                     + get_value_To_string(log[i.name])
+    
     return query
 
 
@@ -231,18 +263,38 @@ def get_other_type_keys(mapping, log, current_entity_type,
 
     if (mapping.check_if_array_has_identifier()):
         insert_elements = [m for m in event if m.to_type == "Entity"]
+        # Include fields with entity_type == "Both" in both lists
         keys = [m for m in insert_elements
-                if m.entity_type == previous_entity_type]
+                if m.entity_type == previous_entity_type or m.entity_type == "Both"]
         values = [m for m in insert_elements
-                  if m.entity_type == current_entity_type]
+                  if m.entity_type == current_entity_type or m.entity_type == "Both"]
 
-        for index, i in enumerate(keys):
-            mock_other_type_keys = mock_other_type_keys + alias + i.name \
-                                   + sign \
-                                   + f'''\'{log[values[index].name]}\''''
+        # Validate that we have matching pairs
+        if len(keys) != len(values):
+            print(f"    [WARN] Mismatch: {len(keys)} {previous_entity_type} keys vs {len(values)} {current_entity_type} values")
+            print(f"           Keys: {', '.join([k.name for k in keys])}")
+            print(f"           Values: {', '.join([v.name for v in values])}")
+            # Only process up to the minimum length to avoid IndexError
+            min_length = min(len(keys), len(values))
+            if min_length == 0:
+                return mock_other_type_keys
+        else:
+            min_length = len(keys)
 
-            if len(keys) - 1 > index:
+        for index in range(min_length):
+            key_field = keys[index]
+            value_field = values[index]
+            
+            # Check if the value field exists in log and has a value
+            if value_field.name not in log or pd.isna(log[value_field.name]) or log[value_field.name] == "":
+                continue
+            
+            if mock_other_type_keys:  # Add comma if not first field
                 mock_other_type_keys = mock_other_type_keys + ","
+            
+            mock_other_type_keys = mock_other_type_keys + alias + key_field.name \
+                                   + sign \
+                                   + f'''\'{log[value_field.name]}\''''
 
     return mock_other_type_keys
 
@@ -256,15 +308,23 @@ def get_actor_insert_value_str(log, mapping,
                                connnector, session):
     insert = ""
     user_type = ""
+    insert_elements = None
 
     if (mapping.check_if_array_has_identifier()):
         insert_elements = [m for m in event if m.to_type == "Entity"]
+        
+        # Validate that we have identifier fields for this entity type
+        entity_fields = [m for m in insert_elements 
+                        if m.entity_type == entity_type or m.entity_type == "Both"]
+        if not entity_fields:
+            print(f"    [WARN] No {entity_type} identifier fields in Event mapping")
+        
         insert = get_query_using_array(insert_elements, log, entity_type)
 
     node_exists = check_if_node_exists(connnector, insert, session)
     sign = "=" if node_exists else ":"
 
-    if node_exists:
+    if node_exists and insert_elements is not None:
         insert = get_query_using_array(insert_elements, log, entity_type, True)
     if len(insert) > 0 and mapping.getLength() > 0:
         insert = insert + ", "
@@ -286,6 +346,11 @@ def get_actor_insert_value_str(log, mapping,
     
 
     if not node_exists:
+        # Validate that user_to_pick field exists in log
+        if user_to_pick not in log or pd.isna(log[user_to_pick]):
+            print(f"    [ERROR] Missing '{user_to_pick}' field - cannot create {entity_type} entity")
+            return "", False
+        
         regexMatch = re.search("[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}", log[user_to_pick])
         user_type = user_type \
                     + "EntityType"\
@@ -295,7 +360,17 @@ def get_actor_insert_value_str(log, mapping,
 
         insert = insert + "," + user_type
 
-    insert = insert + "," + mock_values
+    # Only add mock_values if it's not empty
+    if mock_values and mock_values.strip():
+        # Handle leading comma if insert already has content
+        if insert and insert.strip():
+            insert = insert + "," + mock_values
+        else:
+            insert = mock_values
+    
+    # Clean up trailing/leading commas and whitespace
+    insert = insert.strip().strip(',').strip()
+    
     return insert, node_exists
 
 
@@ -307,10 +382,24 @@ def get_actors_Identifier(log, mapping, entity_type, event):
                   or m.entity_type == "Both")
                   and m.to_type == "Entity"]
 
+        # Validate that we have identifier fields for this entity type
+        if not fields:
+            print(f"    [WARN] No {entity_type} identifier fields configured")
+
         for index, f in enumerate(fields):
-            reuquest = reuquest + f.name + ":'" + str(log[f.name]) +"'" # check main field to make sure it is not nan, if nan skip
-            if len(fields) - 1 > index:
-                reuquest = reuquest + ","
+            # Check if field value is not null/NaN before adding to query
+            if f.name in log and not pd.isna(log[f.name]) and log[f.name] != "":
+                if reuquest:  # Add comma if not first field
+                    reuquest = reuquest + ","
+                reuquest = reuquest + f.name + ":'" + str(log[f.name]) +"'"
+            elif f.name not in log:
+                print(f"    [WARN] Field '{f.name}' not in log data (entity_type={entity_type})")
+            elif pd.isna(log[f.name]) or log[f.name] == "":
+                print(f"    [WARN] Field '{f.name}' is empty (entity_type={entity_type})")
+    
+    if not reuquest or reuquest.strip() == "":
+        print(f"    [WARN] No identifier values found for {entity_type} entity")
+    
     return reuquest
 
 
@@ -342,19 +431,31 @@ def get_connection_properties(log, mapping, type_of_connection):
               else "receiver"]
 
     edge_fields = ""
+    first_field = True
     for field in fields:
         if field == "channel":
-            if not(pd.isna(log[field])):
+            if field in log and not(pd.isna(log[field])):
+                if not first_field:
+                    edge_fields = edge_fields + ","
                 edge_fields = edge_fields \
                               + field \
                               + ":" \
-                              + get_value_To_string(log[field]) + ","
-
+                              + get_value_To_string(log[field])
+                first_field = False
         else:
-            edge_fields = edge_fields \
+            # Check if field exists in log before accessing
+            if field in log and not(pd.isna(log[field])):
+                if not first_field:
+                    edge_fields = edge_fields + ","
+                edge_fields = edge_fields \
                           + "Actor:" \
                           + get_value_To_string(log[field])
+                first_field = False
+            else:
+                print(f"[WARNING] Field '{field}' not found in log data for {type_of_connection} connection")
 
+    # Remove any trailing commas (safety check)
+    edge_fields = edge_fields.rstrip(',').strip()
     return edge_fields
 
 
@@ -393,16 +494,23 @@ def create_connection_between_actor_event(connector,
                                                  log,
                                                  event)
     
+    # Validate query is not empty before creating relationship
+    if not query or query.strip() == "":
+        print(f"    [WARN] Empty match query for {type_of_connection} relationship - skipping")
+        return
+    
     connector.create_connection_touchpoint_entity(query_to_get_class_node,
                                                       query_to_get_event_node,
                                                       query,
                                                       type_of_connection,
                                                       properties, session)
 
-    connector.create_connection_event_entity(query_to_get_class_node,
-                                             query_to_get_event_node,
-                                             query,
-                                             properties, session)
+    # Also validate for event-entity connection
+    if query and query.strip():
+        connector.create_connection_event_entity(query_to_get_class_node,
+                                                 query_to_get_event_node,
+                                                 query,
+                                                 properties, session)
 
 
 def create_connection_between_toucpoint_log(connecector, row, mapping, session, event):
@@ -424,14 +532,78 @@ def main():
     master = tk.Tk()
     fileUploadUI = FileUploadUI(master)
     master.mainloop()
-    master = tk.Tk()
+    
     listOfJourneys = []
     connector = connectUI.get_connector()
     
-    if fileUploadUI.getFileLocation() != "" and \
-        xmlschema.is_valid(fileUploadUI.getFileLocation(), '.\Xes.xsd'):
-        logs2 = pm4py.read_xes(fileUploadUI.getFileLocation())
-
+    # Get file location first - check if user actually selected a file
+    try:
+        file_location = fileUploadUI.getFileLocation()
+    except AttributeError:
+        # User closed the window without selecting a file
+        file_location = ""
+    
+    # Check if file is valid and determine file type
+    if file_location == "":
+        messagebox.showerror("Error occurred", "No file selected")
+        return
+    
+    # Clean database if user requested it - only after confirming a file was selected
+    if connectUI.should_clean_database():
+        print("[INFO] Cleaning database before processing...")
+        with connector.driver.session() as session:
+            connector.clean_database(session)
+        print("[INFO] Database cleaned successfully")
+    
+    logs2 = None
+    
+    # Read file based on type
+    if fileUploadUI.isCsvFile():
+        # Read CSV file directly with pandas
+        # Try semicolon delimiter first (common in European CSV files)
+        # If that fails, fall back to comma delimiter
+        try:
+            logs2 = pd.read_csv(file_location, sep=';', encoding='utf-8-sig')
+        except Exception:
+            try:
+                logs2 = pd.read_csv(file_location, sep=',', encoding='utf-8-sig')
+            except Exception as e:
+                messagebox.showerror("Error occurred", f"Failed to read CSV file: {str(e)}")
+                return
+        
+        # Strip BOM (Byte Order Mark) from column names if present
+        logs2.columns = logs2.columns.str.replace('\ufeff', '', regex=False)
+    elif fileUploadUI.isXesFile():
+        # Validate XES file against XSD schema
+        xsd_path = os.path.join(os.path.dirname(__file__), 'Xes.xsd')
+        if not xmlschema.is_valid(file_location, xsd_path):
+            messagebox.showerror("Error occurred", "XES file is not compliant with XSD")
+            return
+        # Read XES file with pm4py
+        try:
+            logs2 = pm4py.read_xes(file_location)
+        except Exception as e:
+            messagebox.showerror("Error occurred", f"Failed to read XES file: {str(e)}")
+            return
+    else:
+        messagebox.showerror("Error occurred", "Unsupported file type. Please select a .xes or .csv file")
+        return
+    
+    # Process the file (same for both CSV and XES)
+    if logs2 is not None and not logs2.empty:
+        # Preprocessing step: Map CSV columns to standard field names
+        master = tk.Tk()
+        preprocessor = PreprocessorUI(master, logs2, logs2.columns)
+        master.mainloop()
+        
+        # Get preprocessed dataframe
+        logs2 = preprocessor.get_preprocessed_dataframe()
+        if logs2 is None:
+            messagebox.showerror("Error occurred", "Preprocessing was cancelled")
+            return
+        
+        # Continue with mapper using preprocessed data
+        master = tk.Tk()
         mapper = Mapper(master, "Test", logs2.columns)
         master.mainloop()
 
@@ -445,7 +617,13 @@ def main():
         datefields = selector.fieldList
         master.mainloop()
         try:
+            print(f"\n{'='*80}")
+            print(f"[INFO] Processing {len(logs2)} rows...")
+            print(f"{'='*80}\n")
+            
             for index, row in logs2.iterrows():
+                print(f"\n[ROW {index + 1}/{len(logs2)}] Event: {row.get('EventType', 'N/A')}, Journey: {row.get('case:journey', 'N/A')}")
+                
                 with connector.driver.session() as session:
                     create_log(connector, row, logs,
                                session, file_name, time_stamp, rating)
@@ -477,19 +655,39 @@ def main():
                                                             row,
                                                             logs,
                                                             session, event)
+            
+            print(f"\n{'='*80}")
+            print(f"[INFO] Finalizing graph structure...")
+            print(f"{'='*80}\n")
+            
             listOfJourneys = list(set(listOfJourneys))
             with connector.driver.session() as session:
+                print("[POST] Creating entity-based directly-follows relationships...")
                 connector.direct_follows_fix(session)
+                
+                print("[POST] Linking logs to events...")
                 for journey in listOfJourneys:
                     connector.has_to_events(session)
+                
+                print("[POST] Removing null directly-follows relationships...")
                 connector.removeNullDF(session)
-                print(mapper)
+                
+                print("[POST] Cleaning up temporary entity properties...")
                 attributesToRemove = getToRemoveAttributes(mapper)
                 connector.removePropertiesOfActors(session, attributesToRemove)
+            
+            print(f"\n{'='*80}")
+            print(f"[SUCCESS] Graph upload completed!")
+            print(f"{'='*80}\n")
         except Exception as e:
-            messagebox.showerror("Error occured", "Upload has stoped due to:" + e)
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"[ERROR] Upload failed with exception:")
+            print(error_details)
+            print(f"[ERROR] Error message: {str(e)}")
+            messagebox.showerror("Error occurred", f"Upload has stopped due to: {str(e)}\n\nCheck console for details.")
     else:
-          messagebox.showerror("Error occured", "XML is not complient with XSD")
+        messagebox.showerror("Error occurred", "File is empty or could not be processed")
 
 
 if __name__ == "__main__":

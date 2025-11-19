@@ -79,6 +79,9 @@ class Neo4jConnection:
 
     def create_entity(self, insert_values, node_exists, session, identifier=""):
         if node_exists:
+            # Validate that we have something to update
+            if not insert_values or insert_values.strip() == "":
+                return
             session.execute_write(self.update_Entity_tx,
                                   insert_values,
                                   identifier)
@@ -86,10 +89,24 @@ class Neo4jConnection:
             session.execute_write(self.create_Entity_tx, insert_values)
 
     def create_Entity_tx(self, tx, insert_values):
-        q_create_entity = f'''
-        MERGE (en:Entity {{{insert_values}}})'''
-
-        tx.run(q_create_entity)
+        # Validate insert_values is not empty
+        if not insert_values or insert_values.strip() == "":
+            return
+        
+        # Clean up trailing/leading commas
+        insert_values = insert_values.strip().strip(',').strip()
+        if not insert_values:
+            return
+        
+        try:
+            q_create_entity = f'''
+            MERGE (en:Entity {{{insert_values}}})'''
+            
+            print(f"  [CREATE] Entity node: {insert_values[:100]}{'...' if len(insert_values) > 100 else ''}")
+            tx.run(q_create_entity)
+        except Exception as e:
+            print(f"    [ERROR] Entity creation failed: {e}")
+            raise
 
     def add_journey(self, connection, journeyID):
         qAddJourney = f''' Create (:Journey:Entity {{ID: "{journeyID}", EntityType="{"Journey"}"}})'''
@@ -116,13 +133,53 @@ class Neo4jConnection:
                                          match_clause,
                                          type_of_connection,
                                          properties):
-        q_entity_event_relationship = f'''
-        MATCH (e: Touchpoint WHERE {where_clause})
-        MATCH (en:Entity WHERE {match_clause})
-        MERGE (e)-[{type_of_connection}:{type_of_connection}
-        {{{properties}}}]->(en)'''
-
-        connection.run(q_entity_event_relationship)
+        # Validate WHERE clauses are not empty
+        if not where_clause or where_clause.strip() == "":
+            print(f"    [ERROR] Empty WHERE clause for {type_of_connection} relationship")
+            return
+        
+        if not match_clause or match_clause.strip() == "":
+            print(f"    [ERROR] Empty MATCH clause for {type_of_connection} relationship")
+            return
+        
+        # Clean up properties string - remove trailing commas and whitespace
+        if properties:
+            properties = properties.strip().rstrip(',').strip()
+        
+        # Convert Event WHERE clause to Touchpoint WHERE clause by replacing 'e.' with 'tp.'
+        # The where_clause is for Events, but we need to match Touchpoints
+        touchpoint_where = where_clause.replace("e.", "tp.")
+        
+        # Convert match_clause to use Touchpoint alias instead of Event alias
+        # The match_clause compares Event fields (e.) to Entity fields (en.)
+        # We need to compare Touchpoint fields (tp.) to Entity fields (en.)
+        touchpoint_match_clause = match_clause.replace("e.", "tp.")
+        
+        try:
+            # Use proper Neo4j syntax: MATCH ... WHERE ... instead of MATCH ... WHERE ... in the same clause
+            # Handle empty properties - if properties exist, add them, otherwise just the relationship type
+            if properties and properties.strip():
+                q_entity_event_relationship = f'''
+                MATCH (tp:Touchpoint)
+                WHERE {touchpoint_where}
+                MATCH (en:Entity)
+                WHERE {touchpoint_match_clause}
+                MERGE (tp)-[:{type_of_connection} {{{properties}}}]->(en)'''
+            else:
+                q_entity_event_relationship = f'''
+                MATCH (tp:Touchpoint)
+                WHERE {touchpoint_where}
+                MATCH (en:Entity)
+                WHERE {touchpoint_match_clause}
+                MERGE (tp)-[:{type_of_connection}]->(en)'''
+            
+            print(f"  [LINK] Touchpoint -> {type_of_connection} -> Entity")
+            print(f"    WHERE: {touchpoint_where[:80]}{'...' if len(touchpoint_where) > 80 else ''}")
+            print(f"    MATCH: {touchpoint_match_clause[:80]}{'...' if len(touchpoint_match_clause) > 80 else ''}")
+            connection.run(q_entity_event_relationship)
+        except Exception as e:
+            print(f"    [ERROR] Failed to link Touchpoint -> {type_of_connection} -> Entity: {e}")
+            raise
 
     def create_connection_touchpoint_entity(self, where_clause,
                                             query_to_get_event_node, 
@@ -138,12 +195,33 @@ class Neo4jConnection:
                                          query_to_get_event_node,
                                          match_clause,
                                          properties):
-        q_entity_event_relationship = f'''
-        MATCH (e: Touchpoint WHERE {where_clause}),
-        (ev:Event WHERE {query_to_get_event_node})
-        MATCH (en:Entity WHERE {match_clause})
-        MERGE (ev)-[cr:Corr]->(en)'''
-        connection.run(q_entity_event_relationship)
+        # Validate WHERE clauses are not empty
+        if not where_clause or where_clause.strip() == "":
+            print(f"    [ERROR] Empty WHERE clause for Event-Entity relationship")
+            return
+        
+        if not query_to_get_event_node or query_to_get_event_node.strip() == "":
+            print(f"    [ERROR] Empty Event node query")
+            return
+        
+        if not match_clause or match_clause.strip() == "":
+            print(f"    [ERROR] Empty MATCH clause for Event-Entity relationship")
+            return
+        
+        try:
+            q_entity_event_relationship = f'''
+            MATCH (e: Touchpoint WHERE {where_clause}),
+            (ev:Event WHERE {query_to_get_event_node})
+            MATCH (en:Entity WHERE {match_clause})
+            MERGE (ev)-[cr:Corr]->(en)'''
+            
+            print(f"  [LINK] Event -> Corr -> Entity")
+            print(f"    WHERE: {where_clause[:80]}{'...' if len(where_clause) > 80 else ''}")
+            print(f"    MATCH: {match_clause[:80]}{'...' if len(match_clause) > 80 else ''}")
+            connection.run(q_entity_event_relationship)
+        except Exception as e:
+            print(f"    [ERROR] Failed to link Event -> Corr -> Entity: {e}")
+            raise
 
     def create_connection_event_entity(self, where_clause,
                                        query_to_get_event_node, field_name,
@@ -184,21 +262,60 @@ class Neo4jConnection:
         session.execute_write(self.create_class_tx, insert, is_planned)
 
     def create_class_tx(self, tx, insert, is_planned):
-        full_properties = insert + ", Type" + ":\"Touchpoint\""
-        q_create_class = f'''
-        CREATE (c:Touchpoint{ ":Class" if is_planned else "" } {{{full_properties}}} )
-        '''
+        # Validate insert is not empty (excluding the Type property we add)
+        if not insert or insert.strip() == "":
+            full_properties = "Type:\"Touchpoint\""
+        else:
+            # Clean up trailing/leading commas
+            insert = insert.strip().strip(',').strip()
+            full_properties = insert + ", Type" + ":\"Touchpoint\""
+        
+        try:
+            q_create_class = f'''
+            CREATE (c:Touchpoint{ ":Class" if is_planned else "" } {{{full_properties}}} )
+            '''
+            
+            print(f"  [CREATE] Touchpoint: {full_properties[:100]}{'...' if len(full_properties) > 100 else ''}")
+            tx.run(q_create_class)
+        except Exception as e:
+            print(f"    [ERROR] Touchpoint creation failed: {e}")
+            raise
 
-        tx.run(q_create_class)
-
-    def create_class_event_relationship(self, id, jounreyID, session):
+    def create_class_event_relationship(self, log, primary_keys, journeyID, session):
         session.execute_write(self.create_class_event_relationship_tx,
-                              id, jounreyID)
+                              log, primary_keys, journeyID)
 
-    def create_class_event_relationship_tx(self, tx, id, jounreyID):
+    def create_class_event_relationship_tx(self, tx, log, primary_keys, journeyID):
+        from Functions.StringManipulation import get_value_To_string, check_if_string_is_not_None, remove_case_append
+        
+        # Build WHERE clause for Event using primary keys
+        event_where_parts = []
+        touchpoint_where_parts = []
+        
+        for field in primary_keys.dataFields:
+            if field.name in log:
+                value = get_value_To_string(log[field.name])
+                if check_if_string_is_not_None(value):
+                    field_name = remove_case_append(field.name)
+                    event_where_parts.append(f'e.{field_name} = {value}')
+                    touchpoint_where_parts.append(f'c.{field_name} = {value}')
+        
+        # Add journey to both WHERE clauses
+        event_where_parts.append(f'e.journey = "{journeyID}"')
+        touchpoint_where_parts.append(f'c.journey = "{journeyID}"')
+        
+        if not event_where_parts:
+            return
+        
+        event_where = " AND ".join(event_where_parts)
+        touchpoint_where = " AND ".join(touchpoint_where_parts)
+        
+        # Use proper Neo4j syntax: MATCH ... WHERE ... instead of MATCH ... WHERE ... in the same clause
         q_create_relationship = f'''
-        MATCH (e:Event WHERE e.Id = "{id}" and e.journey = "{jounreyID}"),
-        (c:Touchpoint WHERE c.Id = "{id}" and c.journey = "{jounreyID}")
+        MATCH (e:Event)
+        WHERE {event_where}
+        MATCH (c:Touchpoint)
+        WHERE {touchpoint_where}
         MERGE (e)-[:Observe]->(c)
         '''
 
@@ -217,10 +334,24 @@ class Neo4jConnection:
         return True
 
     def update_Entity_tx(self, tx, query, identifier):
-        q_update_entity = f'''MATCH (e:Entity {{{identifier}}})
-        SET {query}'''
-
-        tx.run(q_update_entity)
+        # Skip update if query is empty to avoid "SET ," syntax error
+        if not query or query.strip() == "":
+            return
+        
+        # Remove leading/trailing commas and whitespace
+        query = query.strip().strip(',').strip()
+        if not query:
+            return
+        
+        try:
+            q_update_entity = f'''MATCH (e:Entity {{{identifier}}})
+            SET {query}'''
+            
+            print(f"  [UPDATE] Entity: SET {query[:100]}{'...' if len(query) > 100 else ''}")
+            tx.run(q_update_entity)
+        except Exception as e:
+            print(f"    [ERROR] Entity update failed: {e}")
+            raise
 
     def create_communication_node(self, session, channel):
         session.execute_write(self.create_communication_node_tx, channel)
@@ -339,3 +470,18 @@ class Neo4jConnection:
         MERGE (l)-[:Has]->(e)
         '''
         connection.run(query)
+
+    def clean_database(self, session):
+        """Delete all nodes and relationships from the database"""
+        session.execute_write(self.clean_database_tx)
+
+    def clean_database_tx(self, tx):
+        """Transaction to delete all nodes and relationships"""
+        query = '''
+        MATCH (n)
+        DETACH DELETE n
+        '''
+        result = tx.run(query)
+        summary = result.consume()
+        print(f"[INFO] Cleaned database: Deleted {summary.counters.nodes_deleted} nodes and {summary.counters.relationships_deleted} relationships")
+        return summary

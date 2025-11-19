@@ -1,5 +1,26 @@
 {
-    "python.analysis.extraPaths": [
-        "./Connection"
-    ]
+    // Option 1: Use WSL Python interpreter directly (if you want to stay in Windows Cursor)
+    // Uncomment and adjust the path below based on your WSL distribution
+    // "python.defaultInterpreterPath": "\\\\wsl$\\Ubuntu\\usr\\bin\\python3",
+    // Or for a specific Python version:
+    // "python.defaultInterpreterPath": "\\\\wsl$\\Ubuntu\\home\\fmannhardt\\anaconda3\\bin\\python",
+    
+    // Option 2: Recommended - Use Remote-WSL extension
+    // Install the "Remote - WSL" extension in Cursor, then:
+    // 1. Press Ctrl+Shift+P
+    // 2. Type "WSL: Connect to WSL" or "WSL: Connect to WSL using Distro..."
+    // 3. Select your WSL distribution
+    // This will open a new Cursor window connected to WSL
+    
+    // Python settings
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "basic",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    "python.linting.flake8Enabled": true,
+    
+    // File associations
+    "files.associations": {
+        "*.xes": "xml"
+    }
 }
