@@ -1,4 +1,5 @@
 from neo4j import GraphDatabase
+import pandas as pd
 
 
 class Neo4jConnection:
@@ -209,15 +210,17 @@ class Neo4jConnection:
             return
         
         try:
+            # Match Event and Entity directly, then create Corr relationship
+            # where_clause is not needed here - it's only used for Touchpoint-Entity relationships
+            # Both query_to_get_event_node and match_clause use 'e.' for Event, so they're consistent
             q_entity_event_relationship = f'''
-            MATCH (e: Touchpoint WHERE {where_clause}),
-            (ev:Event WHERE {query_to_get_event_node})
+            MATCH (e:Event WHERE {query_to_get_event_node})
             MATCH (en:Entity WHERE {match_clause})
-            MERGE (ev)-[cr:Corr]->(en)'''
+            MERGE (e)-[cr:Corr]->(en)'''
             
             print(f"  [LINK] Event -> Corr -> Entity")
-            print(f"    WHERE: {where_clause[:80]}{'...' if len(where_clause) > 80 else ''}")
-            print(f"    MATCH: {match_clause[:80]}{'...' if len(match_clause) > 80 else ''}")
+            print(f"    Event WHERE: {query_to_get_event_node[:80]}{'...' if len(query_to_get_event_node) > 80 else ''}")
+            print(f"    Entity WHERE: {match_clause[:80]}{'...' if len(match_clause) > 80 else ''}")
             connection.run(q_entity_event_relationship)
         except Exception as e:
             print(f"    [ERROR] Failed to link Event -> Corr -> Entity: {e}")
@@ -258,10 +261,12 @@ class Neo4jConnection:
 
         tx.run(qCreateDf)
 
-    def create_class(self, insert, session, is_planned=False):
-        session.execute_write(self.create_class_tx, insert, is_planned)
+    def create_class(self, insert, session, is_planned=False, primary_keys=None, journey=None, log=None):
+        session.execute_write(self.create_class_tx, insert, is_planned, primary_keys, journey, log)
 
-    def create_class_tx(self, tx, insert, is_planned):
+    def create_class_tx(self, tx, insert, is_planned, primary_keys=None, journey=None, log=None):
+        from Functions.StringManipulation import get_value_To_string, check_if_string_is_not_None, remove_case_append
+        
         # Validate insert is not empty (excluding the Type property we add)
         if not insert or insert.strip() == "":
             full_properties = "Type:\"Touchpoint\""
@@ -271,11 +276,54 @@ class Neo4jConnection:
             full_properties = insert + ", Type" + ":\"Touchpoint\""
         
         try:
-            q_create_class = f'''
-            CREATE (c:Touchpoint{ ":Class" if is_planned else "" } {{{full_properties}}} )
-            '''
+            # If primary keys, journey, and log are provided, use MERGE to prevent duplicates
+            # Otherwise, use CREATE (for backward compatibility)
+            # Note: log is a pandas Series, so we check 'is not None' instead of truthiness
+            if primary_keys is not None and journey is not None and log is not None and primary_keys.getLength() > 0:
+                # Build MERGE clause using Id + EventType + journey
+                # Id is auto-generated and unique per CSV row, so each row should create a unique touchpoint
+                # A touchpoint is uniquely identified by: Id + EventType + journey
+                merge_properties = []
+                
+                # CRITICAL: Add Id first (auto-generated, unique per CSV row)
+                # This ensures each CSV row creates a unique touchpoint node
+                if 'Id' in log and not pd.isna(log['Id']) and log['Id'] != "":
+                    id_value = get_value_To_string(log['Id'])
+                    if check_if_string_is_not_None(id_value):
+                        merge_properties.append(f'Id: {id_value}')
+                
+                # Add EventType to merge properties (critical for touchpoint uniqueness)
+                # Touchpoints with same Id but different EventType should be different touchpoints
+                # Note: log is a pandas Series, so we check 'in log' (checks index) and handle NaN
+                if 'EventType' in log and not pd.isna(log['EventType']) and log['EventType'] != "":
+                    event_type_value = get_value_To_string(log['EventType'])
+                    if check_if_string_is_not_None(event_type_value):
+                        merge_properties.append(f'EventType: {event_type_value}')
+                
+                # Add journey to merge properties
+                merge_properties.append(f'journey: "{journey}"')
+                
+                # Add Type to merge properties
+                merge_properties.append('Type: "Touchpoint"')
+                
+                merge_clause = ", ".join(merge_properties)
+                
+                # Use MERGE with ON CREATE SET to set all properties when creating
+                # ON MATCH is optional - we could update properties if needed
+                q_create_class = f'''
+                MERGE (c:Touchpoint{ ":Class" if is_planned else "" } {{{merge_clause}}})
+                ON CREATE SET c = {{{full_properties}}}
+                '''
+                
+                print(f"  [MERGE] Touchpoint (unique keys: {merge_clause[:100]}{'...' if len(merge_clause) > 100 else ''})")
+            else:
+                # Fallback to CREATE for backward compatibility
+                q_create_class = f'''
+                CREATE (c:Touchpoint{ ":Class" if is_planned else "" } {{{full_properties}}} )
+                '''
+                
+                print(f"  [CREATE] Touchpoint: {full_properties[:100]}{'...' if len(full_properties) > 100 else ''}")
             
-            print(f"  [CREATE] Touchpoint: {full_properties[:100]}{'...' if len(full_properties) > 100 else ''}")
             tx.run(q_create_class)
         except Exception as e:
             print(f"    [ERROR] Touchpoint creation failed: {e}")
@@ -288,10 +336,20 @@ class Neo4jConnection:
     def create_class_event_relationship_tx(self, tx, log, primary_keys, journeyID):
         from Functions.StringManipulation import get_value_To_string, check_if_string_is_not_None, remove_case_append
         
-        # Build WHERE clause for Event using primary keys
+        # Build WHERE clause for Event using Id + EventType + journey
+        # Id is auto-generated and unique per CSV row, ensuring each event matches to its unique touchpoint
         event_where_parts = []
         touchpoint_where_parts = []
         
+        # CRITICAL: Add Id first (auto-generated, unique per CSV row)
+        # This ensures each event matches to its corresponding unique touchpoint
+        if 'Id' in log and not pd.isna(log['Id']) and log['Id'] != "":
+            id_value = get_value_To_string(log['Id'])
+            if check_if_string_is_not_None(id_value):
+                event_where_parts.append(f'e.Id = {id_value}')
+                touchpoint_where_parts.append(f'c.Id = {id_value}')
+        
+        # Also include primary keys if they exist (for additional matching criteria)
         for field in primary_keys.dataFields:
             if field.name in log:
                 value = get_value_To_string(log[field.name])
@@ -299,6 +357,15 @@ class Neo4jConnection:
                     field_name = remove_case_append(field.name)
                     event_where_parts.append(f'e.{field_name} = {value}')
                     touchpoint_where_parts.append(f'c.{field_name} = {value}')
+        
+        # Add EventType to both WHERE clauses (events use Label, touchpoints use EventType)
+        # This ensures events match to the correct touchpoint based on EventType
+        if 'EventType' in log and not pd.isna(log['EventType']) and log['EventType'] != "":
+            event_type_value = get_value_To_string(log['EventType'])
+            if check_if_string_is_not_None(event_type_value):
+                # Events store EventType as Label, touchpoints store it as EventType
+                event_where_parts.append(f'e.Label = {event_type_value}')
+                touchpoint_where_parts.append(f'c.EventType = {event_type_value}')
         
         # Add journey to both WHERE clauses
         event_where_parts.append(f'e.journey = "{journeyID}"')

@@ -61,8 +61,21 @@ def create_subevent(connector, log, mapping, field, session):
     if primary_keys.getLength() > 0:
         primary_key_string = ", " + primary_keys.get_field_string(log)
     
+    # Also include Entity-related fields (foreign_key == 1, to_type == "Entity") 
+    # These are needed for Corr relationship matching
+    entity_fields_string = ""
+    for m in mapping:
+        if m.foreign_key and m.to_type == "Entity":
+            if m.name in log and not pd.isna(log[m.name]) and log[m.name] != "":
+                if entity_fields_string:
+                    entity_fields_string += ", "
+                entity_fields_string += f'''{remove_case_append(m.name)}:{get_value_To_string(log[m.name])}'''
+    
+    if entity_fields_string:
+        entity_fields_string = ", " + entity_fields_string
+    
     node = f'''TimeStampType:"{field}", TimeStamp:"{log[field]}", Id:"{log["Id"]}"
-                                    , journey:"{log["case:journey"]}", Label:"{log["EventType"]}"{primary_key_string}'''
+                                    , journey:"{log["case:journey"]}", Label:"{log["EventType"]}"{primary_key_string}{entity_fields_string}'''
     connector.create_subevent(node, session)
 
 
@@ -111,13 +124,28 @@ def create_entities(connector, log, mapping, session, timestampNames, rating, jo
         if primary_keys.getLength() > 0:
             primary_key_string = ", " + primary_keys.get_field_string(log)
         
-        event_node = f'''Id:"{log["Id"]}", journey:"{log["case:journey"]}", Label:"{log["EventType"]}"{primary_key_string}'''
+        # Also include Entity-related fields (foreign_key == 1, to_type == "Entity") 
+        # These are needed for Corr relationship matching
+        entity_fields_string = ""
+        for m in mapping:
+            if hasattr(m, 'foreign_key') and m.foreign_key == 1 and hasattr(m, 'to_type') and m.to_type == "Entity":
+                if m.name in log and not pd.isna(log[m.name]) and log[m.name] != "":
+                    if entity_fields_string:
+                        entity_fields_string += ", "
+                    entity_fields_string += f'''{remove_case_append(m.name)}:{get_value_To_string(log[m.name])}'''
+        
+        if entity_fields_string:
+            entity_fields_string = ", " + entity_fields_string
+        
+        event_node = f'''Id:"{log["Id"]}", journey:"{log["case:journey"]}", Label:"{log["EventType"]}"{primary_key_string}{entity_fields_string}'''
         connector.create_subevent(event_node, session)
 
     if(log['initiatorsLabel'] not in listOfEmpty):
+        # Pass primary keys, journey, and log to create_class to enable MERGE and prevent duplicates
+        primary_keys = mapping.get_primary_keys()
         connector.create_class(append_log_metadata(
             mapping.get_field_string(log),
-            log), session, is_planned)
+            log), session, is_planned, primary_keys, log["case:journey"], log)
 
     # Use primary keys from Event mapping to match Events to Touchpoints
     primary_keys = mapping.get_primary_keys()
@@ -484,8 +512,8 @@ def create_connection_between_actor_event(connector,
     query_to_get_class_node = query_to_get_class_node \
         + f''' AND e.journey="{log["case:journey"]}"'''
 
-    query_to_get_event_node = "ev.Id = " \
-        + f'''"{log["Id"]}" AND ev.journey="{log["case:journey"]}"'''
+    query_to_get_event_node = "e.Id = " \
+        + f'''"{log["Id"]}" AND e.journey="{log["case:journey"]}"'''
 
     query = get_where_clause_to_match_other_node(mapping,
                                                  "Event",
