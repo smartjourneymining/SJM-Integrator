@@ -24,7 +24,7 @@
 <string key="Id" value="1"/>
 <string key="receiver" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="receiverID" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
-<string key="receiverLabel" value="Writes to the user"/>
+<string key="receiversLabel" value="Writes to the user"/>
 <string key="initiator" value="Bookis"/>
 <string key="initiatorID" value="Bookis"/>
 <string key="initiatorsLabel" value="Writes to the user"/>
@@ -36,7 +36,7 @@
 <string key="Id" value="2"/>
 <string key="receiver" value="77720d80-c7f7-40da-8015-403787464a3f"/>
 <string key="receiverID" value="77720d80-c7f7-40da-8015-403787464a3f"/>
-<string key="receiverLabel" value="User sends request"/>
+<string key="receiversLabel" value="User sends request"/>
 <string key="initiator" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="initiatorID" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="initiatorsLabel" value="User sends request"/>
@@ -48,7 +48,7 @@
 <string key="Id" value="3"/>
 <string key="receiver" value="77720d80-c7f7-40da-8015-403787464a3f"/>
 <string key="receiverID" value="77720d80-c7f7-40da-8015-403787464a3f"/>
-<string key="receiverLabel" value="User sends request"/>
+<string key="receiversLabel" value="User sends request"/>
 <string key="initiator" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="initiatorID" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="initiatorsLabel" value="User sends request"/>
@@ -60,7 +60,7 @@
 <string key="Id" value="4"/>
 <string key="receiver" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="receiverID" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
-<string key="receiverLabel" value="Writes to the user"/>
+<string key="receiversLabel" value="Writes to the user"/>
 <string key="initiator" value="Bookis"/>
 <string key="initiatorID" value="Bookis"/>
 <string key="initiatorsLabel" value="Writes to the user"/>
@@ -72,7 +72,7 @@
 <string key="Id" value="5"/>
 <string key="receiver" value="77720d80-c7f7-40da-8015-403787464a3f"/>
 <string key="receiverID" value="77720d80-c7f7-40da-8015-403787464a3f"/>
-<string key="receiverLabel" value="User sends request"/>
+<string key="receiversLabel" value="User sends request"/>
 <string key="initiator" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="initiatorID" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="initiatorsLabel" value="User sends request"/>
@@ -84,7 +84,7 @@
 <string key="Id" value="6"/>
 <string key="receiver" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
 <string key="receiverID" value="0cfbe6dc-4ef2-4966-a42b-3cacd3fc2e2f"/>
-<string key="receiverLabel" value="Writes to the user"/>
+<string key="receiversLabel" value="Writes to the user"/>
 <string key="initiator" value="Bookis"/>
 <string key="initiatorID" value="Bookis"/>
 <string key="initiatorsLabel" value="Writes to the user"/>
@@ -96,7 +96,7 @@
 <string key="Id" value="7"/>
 <string key="receiver" value="77720d80-c7f7-40da-8015-403787464a3f"/>
 <string key="receiverID" value="77720d80-c7f7-40da-8015-403787464a3f"/>
-<string key="receiverLabel" value="Package delivery"/>
+<string key="receiversLabel" value="Package delivery"/>
 <string key="initiator" value="Postal Service"/>
 <string key="initiatorID" value="Postal Service"/>
 <string key="initiatorsLabel" value="Package delivery"/>
@@ -108,7 +108,7 @@
 <string key="Id" value="8"/>
 <string key="receiver" value="77720d80-c7f7-40da-8015-403787464a3f"/>
 <string key="receiverID" value="77720d80-c7f7-40da-8015-403787464a3f"/>
-<string key="receiverLabel" value="Package delivery"/>
+<string key="receiversLabel" value="Package delivery"/>
 <string key="initiator" value="Postal Service"/>
 <string key="initiatorID" value="Postal Service"/>
 <string key="initiatorsLabel" value="Package delivery"/>
@@ -120,7 +120,7 @@
 <string key="Id" value="9"/>
 <string key="receiver" value="77720d80-c7f7-40da-8015-403787464a3f"/>
 <string key="receiverID" value="77720d80-c7f7-40da-8015-403787464a3f"/>
-<string key="receiverLabel" value="Package delivery"/>
+<string key="receiversLabel" value="Package delivery"/>
 <string key="initiator" value="Postal Service"/>
 <string key="initiatorID" value="Postal Service"/>
 <string key="initiatorsLabel" value="Package delivery"/>

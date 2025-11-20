@@ -23,8 +23,6 @@ status = ""
 fileToRead = ""
 counter = 0
 
-listOfEmpty = []
-
 
 def create_log(connector, logs, mapping, session,
                file_name, time_stamp, rating):
@@ -99,7 +97,6 @@ def get_fields_from_list(log, mapping, session, connector):
 
 
 def create_entities(connector, log, mapping, session, timestampNames, rating, journey, objects):
-    global listOfEmpty
     is_planned = False
     try:
         if np.isnan(log['case:isPlanned']):
@@ -140,7 +137,8 @@ def create_entities(connector, log, mapping, session, timestampNames, rating, jo
         event_node = f'''Id:"{log["Id"]}", journey:"{log["case:journey"]}", Label:"{log["EventType"]}"{primary_key_string}{entity_fields_string}'''
         connector.create_subevent(event_node, session)
 
-    if(log['initiatorsLabel'] not in listOfEmpty):
+    # Create Touchpoint if initiatorsLabel exists and has a value
+    if 'initiatorsLabel' in log and not pd.isna(log.get('initiatorsLabel')) and log.get('initiatorsLabel') != "":
         # Pass primary keys, journey, and log to create_class to enable MERGE and prevent duplicates
         primary_keys = mapping.get_primary_keys()
         connector.create_class(append_log_metadata(

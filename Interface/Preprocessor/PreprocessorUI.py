@@ -121,7 +121,11 @@ class PreprocessorUI:
             "case:journey",  # Used extensively for journey relationships
             "Id",  # Used for event identification
             "channel",  # Used for communication nodes
-            "initiatorsLabel",  # Used to check if entity should be created
+            "initiatorsLabel", 
+            "receiversLabel",
+            "initiator",
+            "receiverID",
+            "initiatorID", 
             "case:LogID",  # Used in log metadata
             "case:enduser",  # Used to determine entity type
             "EventType",  # Used in subevent creation

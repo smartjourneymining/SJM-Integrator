@@ -1,0 +1,2 @@
+# QueryVisualizer module
+

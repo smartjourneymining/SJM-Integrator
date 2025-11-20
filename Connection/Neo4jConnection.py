@@ -1,5 +1,6 @@
 from neo4j import GraphDatabase
 import pandas as pd
+import re
 
 
 class Neo4jConnection:
@@ -22,7 +23,22 @@ class Neo4jConnection:
         return result
 
     def create_journey_tx(self, tx, journey):
-        q_create_journey = f''' Merge (l:Journey:Entity {{{journey}}})'''
+        # Ensure EntityType is set to "Journey" for Journey nodes
+        # Clean up the journey string and add EntityType if not present
+        journey_props = journey.strip().strip(',').strip()
+        
+        # Check if EntityType is already in the properties
+        if 'EntityType' not in journey_props:
+            if journey_props:
+                journey_props = journey_props + ', EntityType:"Journey"'
+            else:
+                journey_props = 'EntityType:"Journey"'
+        else:
+            # EntityType exists, but ensure it's set to "Journey"
+            # Replace any existing EntityType value with "Journey"
+            journey_props = re.sub(r'EntityType\s*:\s*"[^"]*"', 'EntityType:"Journey"', journey_props)
+        
+        q_create_journey = f''' Merge (l:Journey:Entity {{{journey_props}}})'''
 
         tx.run(q_create_journey)
 
@@ -253,7 +269,7 @@ class Neo4jConnection:
         MATCH (b:Event)
         WHERE b.journey = "{journey}"
         WITH b
-        ORDER BY b.timestamp
+        ORDER BY b.timestamp, b.Id
         WITH collect(b) AS nodes
         UNWIND range(0,size(nodes) -2 ) AS i
         WITH nodes[i] as e1, nodes[i+1] as e2
@@ -552,3 +568,15 @@ class Neo4jConnection:
         summary = result.consume()
         print(f"[INFO] Cleaned database: Deleted {summary.counters.nodes_deleted} nodes and {summary.counters.relationships_deleted} relationships")
         return summary
+
+    def execute_query(self, session, query):
+        """Execute a Cypher query and return results"""
+        return session.execute_read(self.execute_query_tx, query)
+
+    def execute_query_tx(self, tx, query):
+        """Transaction to execute a Cypher query"""
+        result = tx.run(query)
+        records = []
+        for record in result:
+            records.append(record)
+        return records

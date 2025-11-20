@@ -184,7 +184,8 @@ def analyze_touchpoints(session, journey_id='ID14'):
     MATCH (uj:Journey WHERE uj.journey = '{journey_id}')
     MATCH (uj)-[:Contains]-(tp:Touchpoint)
     OPTIONAL MATCH (e:Event)-[:Observe]->(tp)
-    RETURN tp.Id AS touchpointId, tp.EventType AS eventType, COUNT(e) AS eventCount
+    RETURN tp.Id AS touchpointId, tp.EventType AS eventType, COUNT(e) AS eventCount,
+           COLLECT(e.Id) AS eventIds
     ORDER BY eventCount DESC
     """
     result = run_query(session, query, "Events per touchpoint")
@@ -193,9 +194,16 @@ def analyze_touchpoints(session, journey_id='ID14'):
     if touchpoints_with_multiple_events:
         print(f"\n⚠ WARNING: {len(touchpoints_with_multiple_events)} touchpoints have multiple events:")
         for r in touchpoints_with_multiple_events[:10]:  # Show first 10
+            event_ids = r.get('eventIds', [])
             print(f"  Touchpoint {r['touchpointId']} ({r['eventType']}): {r['eventCount']} events")
+            print(f"    Event IDs: {event_ids}")
     else:
         print("✓ All touchpoints have exactly one event (or zero)")
+    
+    # Check for touchpoints with zero events
+    touchpoints_with_no_events = [r for r in result if r['eventCount'] == 0]
+    if touchpoints_with_no_events:
+        print(f"\n⚠ WARNING: {len(touchpoints_with_no_events)} touchpoints have no events observing them")
     
     # Count event Df relationships
     query = f"""
@@ -271,6 +279,62 @@ def analyze_touchpoint_df_relationships(session, journey_id='ID14'):
             total = r['outgoingCount'] + r['incomingCount']
             if total > 0:
                 print(f"  {r['touchpointId']}: {r['outgoingCount']} outgoing, {r['incomingCount']} incoming")
+        
+        # DEBUG: For touchpoints with unusual counts, show which events observe them
+        print("\n" + "="*80)
+        print("DEBUG: Events Observing Touchpoints with High Relationship Counts")
+        print("="*80)
+        for r in result[:5]:  # Check top 5
+            tp_id = r['touchpointId']
+            if r['incomingCount'] > 5 or r['outgoingCount'] > 1:
+                # Check which events observe this touchpoint
+                event_query = f"""
+                MATCH (uj:Journey WHERE uj.journey = '{journey_id}')
+                MATCH (uj)-[:Contains]-(tp:Touchpoint {{Id: {tp_id}}})
+                MATCH (e:Event)-[:Observe]->(tp)
+                RETURN e.Id AS eventId, e.Label AS eventLabel, e.journey AS journey,
+                       tp.Id AS touchpointId, tp.EventType AS eventType
+                ORDER BY e.Id
+                """
+                event_result = run_query(session, event_query, 
+                                        f"Events observing touchpoint {tp_id}")
+                if event_result:
+                    print(f"\n  Touchpoint {tp_id} ({r['outgoingCount']} outgoing, {r['incomingCount']} incoming):")
+                    print(f"    Observed by {len(event_result)} event(s):")
+                    for e in event_result:
+                        print(f"      Event {e['eventId']}: {e['eventLabel']}")
+                
+                # For incoming relationships, show which touchpoints point to this one
+                if r['incomingCount'] > 0:
+                    incoming_query = f"""
+                    MATCH (uj:Journey WHERE uj.journey = '{journey_id}')
+                    MATCH (uj)-[:Contains]-(tp1:Touchpoint)-[df:Df]->(tp2:Touchpoint {{Id: {tp_id}}})
+                    WHERE (uj)-[:Contains]-(tp2)
+                    RETURN tp1.Id AS sourceId, tp1.EventType AS sourceType, COUNT(df) AS dfCount
+                    ORDER BY dfCount DESC
+                    """
+                    incoming_result = run_query(session, incoming_query,
+                                               f"Touchpoints pointing to {tp_id}")
+                    if incoming_result:
+                        print(f"    Incoming from {len(incoming_result)} source touchpoint(s):")
+                        for src in incoming_result:
+                            print(f"      Touchpoint {src['sourceId']} ({src['sourceType']}): {src['dfCount']} Df relationship(s)")
+                
+                # For outgoing relationships, show which touchpoints this one points to
+                if r['outgoingCount'] > 1:
+                    outgoing_query = f"""
+                    MATCH (uj:Journey WHERE uj.journey = '{journey_id}')
+                    MATCH (uj)-[:Contains]-(tp1:Touchpoint {{Id: {tp_id}}})-[df:Df]->(tp2:Touchpoint)
+                    WHERE (uj)-[:Contains]-(tp2)
+                    RETURN tp2.Id AS targetId, tp2.EventType AS targetType, COUNT(df) AS dfCount
+                    ORDER BY dfCount DESC
+                    """
+                    outgoing_result = run_query(session, outgoing_query,
+                                               f"Touchpoints pointed to by {tp_id}")
+                    if outgoing_result:
+                        print(f"    Outgoing to {len(outgoing_result)} target touchpoint(s):")
+                        for tgt in outgoing_result:
+                            print(f"      Touchpoint {tgt['targetId']} ({tgt['targetType']}): {tgt['dfCount']} Df relationship(s)")
 
 def main():
     """Main function to run the analysis."""
@@ -340,11 +404,178 @@ def main():
                 result = run_query(session, query, "Create touchpoint Df relationships")
                 print(f"Created/updated {len(result)} relationships")
                 
+                # DEBUG: Check for events with duplicate timestamps (which would cause Df ordering issues)
+                print("\n" + "="*80)
+                print("DEBUG: Check for Events with Duplicate Timestamps")
+                print("="*80)
+                duplicate_timestamp_query = f"""
+                MATCH (e:Event)
+                WHERE e.journey = '{journey_id}'
+                WITH e.timestamp AS timestamp, COUNT(*) AS eventCount, COLLECT(e) AS events
+                WHERE eventCount > 1
+                RETURN timestamp, eventCount, [e IN events | e.Id] AS eventIds, 
+                       [e IN events | e.Label] AS eventLabels
+                ORDER BY eventCount DESC
+                LIMIT 10
+                """
+                duplicate_timestamp_result = run_query(session, duplicate_timestamp_query,
+                                                      "Check for events with duplicate timestamps")
+                if duplicate_timestamp_result:
+                    print(f"\n⚠ WARNING: Found {len(duplicate_timestamp_result)} timestamps with multiple events:")
+                    for r in duplicate_timestamp_result:
+                        print(f"  Timestamp {r['timestamp']}: {r['eventCount']} events")
+                        print(f"    Event IDs: {r['eventIds']}")
+                        print(f"    Event Labels: {r['eventLabels']}")
+                else:
+                    print("✓ No duplicate timestamps found (good!)")
+                
+                # DEBUG: Check for events that have multiple outgoing Df relationships
+                print("\n" + "="*80)
+                print("DEBUG: Events with Multiple Outgoing Df Relationships")
+                print("="*80)
+                multiple_outgoing_query = f"""
+                MATCH (e1:Event)-[df:Df {{EntityType: 'Journey'}}]->(e2:Event)
+                WHERE e1.journey = '{journey_id}' AND e2.journey = '{journey_id}'
+                WITH e1, COUNT(df) AS outgoingCount, COLLECT(e2.Id) AS targetIds
+                WHERE outgoingCount > 1
+                RETURN e1.Id AS eventId, e1.Label AS eventLabel, e1.timestamp AS timestamp,
+                       outgoingCount, targetIds
+                ORDER BY outgoingCount DESC
+                LIMIT 10
+                """
+                multiple_outgoing_result = run_query(session, multiple_outgoing_query,
+                                                     "Check for events with multiple outgoing Df")
+                if multiple_outgoing_result:
+                    print(f"\n⚠ WARNING: Found {len(multiple_outgoing_result)} events with multiple outgoing Df relationships:")
+                    for r in multiple_outgoing_result:
+                        print(f"  Event {r['eventId']} ({r['eventLabel']}) at timestamp {r['timestamp']}: {r['outgoingCount']} outgoing")
+                        print(f"    Points to events: {r['targetIds']}")
+                else:
+                    print("✓ No events have multiple outgoing Df relationships (good!)")
+                
+                # DEBUG: Check for duplicate event Ids (which would cause touchpoint issues)
+                print("\n" + "="*80)
+                print("DEBUG: Check for Duplicate Event Ids")
+                print("="*80)
+                duplicate_events_query = f"""
+                MATCH (e:Event)
+                WHERE e.journey = '{journey_id}'
+                WITH e.Id AS eventId, COUNT(*) AS eventCount, COLLECT(e) AS events
+                WHERE eventCount > 1
+                RETURN eventId, eventCount, [e IN events | e.Label] AS eventLabels
+                ORDER BY eventCount DESC
+                LIMIT 10
+                """
+                duplicate_result = run_query(session, duplicate_events_query, 
+                                           "Check for duplicate event Ids")
+                if duplicate_result:
+                    print(f"\n⚠ WARNING: Found {len(duplicate_result)} duplicate event Ids:")
+                    for r in duplicate_result:
+                        print(f"  Event Id {r['eventId']}: {r['eventCount']} events")
+                        print(f"    Labels: {r['eventLabels']}")
+                else:
+                    print("✓ No duplicate event Ids found (good!)")
+                
+                # DEBUG: Check for duplicate touchpoint Ids
+                duplicate_tp_query = f"""
+                MATCH (uj:Journey WHERE uj.journey = '{journey_id}')
+                MATCH (uj)-[:Contains]-(tp:Touchpoint)
+                WITH tp.Id AS touchpointId, COUNT(*) AS tpCount, COLLECT(tp) AS touchpoints
+                WHERE tpCount > 1
+                RETURN touchpointId, tpCount, [tp IN touchpoints | tp.EventType] AS eventTypes
+                ORDER BY tpCount DESC
+                LIMIT 10
+                """
+                duplicate_tp_result = run_query(session, duplicate_tp_query,
+                                                "Check for duplicate touchpoint Ids")
+                if duplicate_tp_result:
+                    print(f"\n⚠ WARNING: Found {len(duplicate_tp_result)} duplicate touchpoint Ids:")
+                    for r in duplicate_tp_result:
+                        print(f"  Touchpoint Id {r['touchpointId']}: {r['tpCount']} touchpoints")
+                        print(f"    EventTypes: {r['eventTypes']}")
+                else:
+                    print("✓ No duplicate touchpoint Ids found (good!)")
+                
                 # Analyze after creation
                 print("\n" + "="*80)
                 print("ANALYSIS: After Creating Relationships")
                 print("="*80)
                 analyze_touchpoint_df_relationships(session, journey_id)
+                
+                # DEBUG: Find duplicate touchpoint Df relationships
+                print("\n" + "="*80)
+                print("DEBUG: Duplicate Touchpoint Df Relationships")
+                print("="*80)
+                
+                # Find touchpoint pairs with multiple Df relationships
+                debug_query = f"""
+                MATCH (uj:Journey WHERE uj.journey = '{journey_id}')
+                MATCH (uj)-[:Contains]-(tp1:Touchpoint)-[df:Df]->(tp2:Touchpoint)
+                WHERE (uj)-[:Contains]-(tp2)
+                WITH tp1, tp2, COUNT(df) AS dfCount
+                WHERE dfCount > 1
+                RETURN tp1.Id AS tp1Id, tp2.Id AS tp2Id, dfCount
+                ORDER BY dfCount DESC
+                """
+                debug_result = run_query(session, debug_query, "Find duplicate Df relationships")
+                if debug_result:
+                    print(f"\n⚠ Found {len(debug_result)} touchpoint pairs with multiple Df relationships:")
+                    for r in debug_result:
+                        print(f"  {r['tp1Id']} -> {r['tp2Id']}: {r['dfCount']} relationships")
+                else:
+                    print("✓ No duplicate Df relationships found (each pair has exactly one)")
+                
+                # DEBUG: Check which events observe which touchpoints for problematic pairs
+                if debug_result:
+                    print("\n" + "="*80)
+                    print("DEBUG: Event-to-Touchpoint Mapping for Duplicate Pairs")
+                    print("="*80)
+                    for r in debug_result[:5]:  # Check first 5 problematic pairs
+                        tp1_id = r['tp1Id']
+                        tp2_id = r['tp2Id']
+                        mapping_query = f"""
+                        MATCH (uj:Journey WHERE uj.journey = '{journey_id}')
+                        MATCH (uj)-[:Contains]-(tp1:Touchpoint {{Id: {tp1_id}}})
+                        MATCH (uj)-[:Contains]-(tp2:Touchpoint {{Id: {tp2_id}}})
+                        MATCH (e1:Event)-[:Observe]->(tp1)
+                        MATCH (e2:Event)-[:Observe]->(tp2)
+                        MATCH (e1)-[df:Df {{EntityType: 'Journey'}}]->(e2)
+                        RETURN e1.Id AS e1Id, e1.Label AS e1Label, tp1.Id AS tp1Id,
+                               e2.Id AS e2Id, e2.Label AS e2Label, tp2.Id AS tp2Id,
+                               df.EntityType AS dfEntityType
+                        ORDER BY e1.Id, e2.Id
+                        """
+                        mapping_result = run_query(session, mapping_query, 
+                                                  f"Event mapping for {tp1_id} -> {tp2_id}")
+                        if mapping_result:
+                            print(f"\n  Touchpoint pair {tp1_id} -> {tp2_id}:")
+                            for m in mapping_result:
+                                print(f"    Event {m['e1Id']} ({m['e1Label']}) -> Event {m['e2Id']} ({m['e2Label']})")
+                                print(f"      Touchpoint {m['tp1Id']} <- Event {m['e1Id']}")
+                                print(f"      Touchpoint {m['tp2Id']} <- Event {m['e2Id']}")
+                
+                # DEBUG: Check if same event observes multiple touchpoints
+                debug_query2 = f"""
+                MATCH (uj:Journey WHERE uj.journey = '{journey_id}')
+                MATCH (e:Event)-[:Observe]->(tp:Touchpoint)
+                WHERE (uj)-[:Contains]-(tp)
+                WITH e, COUNT(DISTINCT tp) AS touchpointCount, COLLECT(DISTINCT tp.Id) AS touchpointIds
+                WHERE touchpointCount > 1
+                RETURN e.Id AS eventId, e.Label AS eventLabel, touchpointCount, touchpointIds
+                ORDER BY touchpointCount DESC
+                LIMIT 10
+                """
+                debug_result2 = run_query(session, debug_query2, 
+                                         "Events observing multiple touchpoints")
+                if debug_result2:
+                    print("\n" + "="*80)
+                    print("DEBUG: Events Observing Multiple Touchpoints")
+                    print("="*80)
+                    for r in debug_result2:
+                        print(f"  Event {r['eventId']} ({r['eventLabel']}): observes {r['touchpointCount']} touchpoints")
+                        print(f"    Touchpoint IDs: {r['touchpointIds']}")
+                else:
+                    print("\n✓ No events observe multiple touchpoints (good!)")
                 
                 # Expected vs actual
                 print("\n" + "="*80)

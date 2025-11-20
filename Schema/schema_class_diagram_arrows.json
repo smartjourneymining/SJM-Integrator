@@ -1,0 +1,199 @@
+{
+  "nodes": [
+    {
+      "id": "channel",
+      "labels": ["Channel"],
+      "properties": {
+        "name": "Channel",
+        "type": "Structural"
+      },
+      "caption": "Channel"
+    },
+    {
+      "id": "entity",
+      "labels": ["Entity"],
+      "properties": {
+        "name": "Entity",
+        "type": "Structural"
+      },
+      "caption": "Entity"
+    },
+    {
+      "id": "event",
+      "labels": ["Event"],
+      "properties": {
+        "name": "Event",
+        "type": "Behavioral"
+      },
+      "caption": "Event"
+    },
+    {
+      "id": "experience",
+      "labels": ["Experience"],
+      "properties": {
+        "name": "Experience",
+        "type": "Behavioral"
+      },
+      "caption": "Experience"
+    },
+    {
+      "id": "touchpoint",
+      "labels": ["Touchpoint"],
+      "properties": {
+        "name": "Touchpoint",
+        "type": "Behavioral"
+      },
+      "caption": "Touchpoint"
+    },
+    {
+      "id": "journey",
+      "labels": ["Journey"],
+      "properties": {
+        "name": "Journey",
+        "type": "Behavioral"
+      },
+      "caption": "Journey"
+    },
+    {
+      "id": "log",
+      "labels": ["Log"],
+      "properties": {
+        "name": "Log",
+        "type": "Behavioral"
+      },
+      "caption": "Log"
+    },
+    {
+      "id": "class",
+      "labels": ["Class"],
+      "properties": {
+        "name": "Class",
+        "type": "Central"
+      },
+      "caption": "Class"
+    }
+  ],
+  "edges": [
+    {
+      "id": "rel1",
+      "source": "channel",
+      "target": "entity",
+      "type": "COMMUNICATES",
+      "properties": {
+        "label": "communicates"
+      },
+      "caption": "communicates"
+    },
+    {
+      "id": "rel2",
+      "source": "class",
+      "target": "event",
+      "type": "OBSERVES",
+      "properties": {
+        "label": "observes"
+      },
+      "caption": "observes"
+    },
+    {
+      "id": "rel3",
+      "source": "class",
+      "target": "touchpoint",
+      "type": "RECEIVER",
+      "properties": {
+        "label": "receiver"
+      },
+      "caption": "receiver"
+    },
+    {
+      "id": "rel4",
+      "source": "class",
+      "target": "touchpoint",
+      "type": "SENDER",
+      "properties": {
+        "label": "sender"
+      },
+      "caption": "sender"
+    },
+    {
+      "id": "rel5",
+      "source": "event",
+      "target": "event",
+      "type": "DF",
+      "properties": {
+        "label": "Df"
+      },
+      "caption": "Df"
+    },
+    {
+      "id": "rel6",
+      "source": "event",
+      "target": "entity",
+      "type": "CORRELATES",
+      "properties": {
+        "label": "correlates"
+      },
+      "caption": "correlates"
+    },
+    {
+      "id": "rel7",
+      "source": "event",
+      "target": "touchpoint",
+      "type": "OBSERVES",
+      "properties": {
+        "label": "observes"
+      },
+      "caption": "observes"
+    },
+    {
+      "id": "rel8",
+      "source": "experience",
+      "target": "event",
+      "type": "DERIVES",
+      "properties": {
+        "label": "derives"
+      },
+      "caption": "derives"
+    },
+    {
+      "id": "rel9",
+      "source": "experience",
+      "target": "touchpoint",
+      "type": "RATES",
+      "properties": {
+        "label": "rates"
+      },
+      "caption": "rates"
+    },
+    {
+      "id": "rel10",
+      "source": "touchpoint",
+      "target": "journey",
+      "type": "CONTAINS",
+      "properties": {
+        "label": "contains"
+      },
+      "caption": "contains"
+    },
+    {
+      "id": "rel11",
+      "source": "log",
+      "target": "event",
+      "type": "HAS",
+      "properties": {
+        "label": "has"
+      },
+      "caption": "has"
+    },
+    {
+      "id": "rel12",
+      "source": "log",
+      "target": "journey",
+      "type": "HAS",
+      "properties": {
+        "label": "has"
+      },
+      "caption": "has"
+    }
+  ]
+}
+
