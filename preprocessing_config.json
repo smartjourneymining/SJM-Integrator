@@ -1,52 +1,52 @@
 {
     "mappings": {
         "channel": "*.properties.channel",
-        "initiatorsLabel": "*.properties.sender",
-        "initiator": "*.uuid",
-        "initiatorID": "*.uuid",
-        "initiatorLabel": "*.properties.sender",
+        "initiatorsLabel": "computed.sender",
+        "initiator": "computed.sender",
+        "initiatorID": "computed.sender",
+        "initiatorLabel": "computed.sender",
         "timestamp": "*.timestamp",
         "EventType": "*.event",
         "case:enduser": "*.uuid",
         "case:journey": "*.uuid",
-        "receiver": "*.uuid",
-        "receiverLabel": "*.properties.subject",
-        "receiversID": "*.uuid",
-        "receiversLabel": "*.properties.subject"
+        "receiver": "computed.receiver",
+        "receiverLabel": "computed.receiver",
+        "receiversID": "computed.receiver",
+        "receiversLabel": "computed.receiver",
+        "Id": "*.uuid"
     },
     "static_values": {
         "case:LogID": "L1",
         "initiator": "bookis",
         "initiatorID": "bookis",
-        "initiatorLabel": "bookis",
-        "initiatorsLabel": "bookis"
+        "initiatorLabel": "bookis"
     },
     "auto_generate": {
         "Id": "Auto-increment (numeric)"
     },
     "skip_fields": [
-        "dateStart",
-        "ObjectCreator",
-        "Deltadate",
-        "ObjectSize",
-        "case:Analysis",
-        "ratingComment",
-        "dateReceiver",
         "ratingScore",
-        "case:journeyStatus",
         "dateCompleted",
         "case:reference",
-        "case:journeyTitle",
-        "dateOriginated",
-        "case:journeyShortSummary",
-        "case:AnalysisPrediction",
+        "ratingComment",
         "ObjectName",
-        "Duration",
-        "case:experineceDescription",
-        "dateConsumed",
-        "case:journeyLongSummary",
         "case:experienceRating",
-        "case:compliance"
+        "case:journeyShortSummary",
+        "Deltadate",
+        "case:compliance",
+        "case:journeyTitle",
+        "dateStart",
+        "case:journeyStatus",
+        "case:Analysis",
+        "dateConsumed",
+        "dateOriginated",
+        "case:experineceDescription",
+        "Duration",
+        "case:AnalysisPrediction",
+        "case:journeyLongSummary",
+        "dateReceiver",
+        "ObjectCreator",
+        "ObjectSize"
     ],
     "csv_columns": [
         "*.event",
@@ -57,6 +57,8 @@
         "*.properties.sender",
         "*.properties.$current_url",
         "*.properties.$pathname",
-        "*.properties.$set.$current_url"
+        "*.properties.$set.$current_url",
+        "computed.sender",
+        "computed.receiver"
     ]
 }
