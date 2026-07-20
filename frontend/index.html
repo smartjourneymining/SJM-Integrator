@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SJM-Integrator — Event Knowledge Graph</title>
+  <link rel="stylesheet" href="/style.css" />
+  <!-- Cytoscape.js + dagre layout (DAG layout suits the Df chains). jsDelivr hosts
+       the dagre extension reliably; app.js registers it and falls back to a built-in
+       layout if it is unavailable. -->
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+</head>
+<body>
+  <header>
+    <h1>SJM-Integrator</h1>
+    <nav>
+      <button class="tab active" data-tab="graph">Graph</button>
+      <button class="tab" data-tab="query">Query</button>
+      <button class="tab" data-tab="import">Import</button>
+      <button class="tab" data-tab="config">Config</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- GRAPH -->
+    <section id="tab-graph" class="panel active">
+      <div class="toolbar">
+        <button id="btn-load-graph">Load Graph</button>
+        <label>Limit <input id="graph-limit" type="number" value="500" min="1" max="10000" /></label>
+        <span class="sep">|</span>
+        <label>Journey
+          <select id="journey-select"><option value="">— all —</option></select>
+        </label>
+        <button id="btn-show-journey">Show Journey</button>
+        <span id="graph-status" class="status"></span>
+      </div>
+      <p class="hint">Right-click any node to expand neighbors, focus its journey, hide it, or view properties.</p>
+      <div class="graph-wrap">
+        <div id="cy"></div>
+        <aside id="sidebar" class="hidden">
+          <h3>Node properties</h3>
+          <table class="node-props"></table>
+        </aside>
+      </div>
+    </section>
+
+    <!-- QUERY -->
+    <section id="tab-query" class="panel">
+      <div class="toolbar">
+        <select id="preset">
+          <option value="">— presets —</option>
+          <option value="MATCH (a)-[r]->(b) RETURN a, r, b LIMIT 300">Full graph (300)</option>
+          <option value="MATCH (e:Event) RETURN e LIMIT 200">Events only</option>
+          <option value="MATCH (j:Journey)-[c:Contains]->(t:Touchpoint) RETURN j, c, t LIMIT 300">Journeys &rarr; Touchpoints</option>
+          <option value="MATCH (e:Event)-[d:Df]->(e2:Event) RETURN e, d, e2 LIMIT 300">Directly-follows</option>
+        </select>
+        <button id="btn-run-query">Execute &amp; Visualize</button>
+        <span id="query-status" class="status"></span>
+      </div>
+      <textarea id="query-input" spellcheck="false"
+        placeholder="Write AGE Cypher with a RETURN clause, e.g.&#10;MATCH (j:Journey)-[c:Contains]->(t:Touchpoint) RETURN j, c, t LIMIT 100"></textarea>
+      <p class="hint">Use AGE/openCypher syntax; the query must include a RETURN. Results render below.</p>
+      <div class="graph-wrap">
+        <div id="cy-query"></div>
+        <aside id="sidebar-query" class="hidden">
+          <h3>Node properties</h3>
+          <table class="node-props"></table>
+        </aside>
+      </div>
+    </section>
+
+    <!-- IMPORT -->
+    <section id="tab-import" class="panel">
+      <div class="toolbar">
+        <input id="import-file" type="file" accept=".csv,.xes" />
+        <button id="btn-import">Import</button>
+        <span id="import-status" class="status"></span>
+      </div>
+      <p class="hint">Requires <code>settings.json</code> and <code>preprocessing_config.json</code> (edit them in the Config tab or on disk).</p>
+      <pre id="import-summary"></pre>
+    </section>
+
+    <!-- CONFIG -->
+    <section id="tab-config" class="panel">
+      <div class="toolbar">
+        <input id="config-file" type="file" accept=".csv,.xes" />
+        <button id="btn-load-columns">Load columns from file</button>
+        <span class="sep">|</span>
+        <button id="btn-config-reload">Reload</button>
+        <button id="btn-config-save">Save</button>
+        <label><input type="checkbox" id="toggle-raw" /> raw JSON</label>
+        <span id="config-status" class="status"></span>
+      </div>
+      <p class="hint">Load your input file to populate column autocomplete, map each standard field to a source column, then assign it to the schema. Editing the files on disk is still supported.</p>
+
+      <datalist id="col-list"></datalist>
+
+      <div id="config-forms" class="config-forms">
+        <h4>1 · Column mapping &nbsp;<small>input file column → standard field</small></h4>
+        <table id="map-table" class="form-table"></table>
+        <h4>2 · Schema mapping &nbsp;<small>standard field → CJML category</small></h4>
+        <table id="schema-table" class="form-table"></table>
+      </div>
+
+      <div id="config-raw" class="config-grid hidden">
+        <div>
+          <h4>settings.json (preview)</h4>
+          <textarea id="settings-json" spellcheck="false" readonly></textarea>
+        </div>
+        <div>
+          <h4>preprocessing_config.json (preview)</h4>
+          <textarea id="preprocessing-json" spellcheck="false" readonly></textarea>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="ctxmenu" class="ctxmenu hidden"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

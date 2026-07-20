@@ -6,8 +6,7 @@ def get_value_To_string(logValue):
         return str(logValue)
 
     elif type(logValue) is str:
-        # Escape double quotes with backslashes for Cypher/Neo4j compatibility
-        # Also escape backslashes themselves to prevent issues
+        # Escape backslashes and double quotes for safe Cypher string literals
         escaped_value = logValue.replace('\\', '\\\\').replace('"', '\\"')
         return f'''"{escaped_value}"'''
 

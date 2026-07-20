@@ -1,0 +1,39 @@
+services:
+  db:
+    # Apache AGE on PostgreSQL 16 (stable, widely used). Docker Hub tag form is
+    # release_PG<ver>_<ageversion>. Available: release_PG16_1.6.0, release_PG17_1.6.0,
+    # release_PG18_1.7.0, ... down to PG11. (The 1.7.0 build is only published for PG18.)
+    image: apache/age:release_PG16_1.6.0
+    environment:
+      POSTGRES_PASSWORD: sjm
+      POSTGRES_USER: postgres
+      POSTGRES_DB: ekg
+    volumes:
+      - age_data:/var/lib/postgresql/data   # graph persistence
+      - bulk:/bulk                          # shared CSV staging (only needed for load_*_from_file bulk path)
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ekg"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_DSN: postgresql://postgres:sjm@db:5432/ekg
+      BULK_DIR: /bulk
+      GRAPH_NAME: ekg_graph
+    volumes:
+      - bulk:/bulk
+      - ./frontend:/app/frontend   # live frontend edits without rebuild
+    ports:
+      - "8000:8000"
+
+volumes:
+  age_data: {}
+  bulk: {}
