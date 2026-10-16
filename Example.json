@@ -51,7 +51,7 @@
             "entity_type": "Receiver"
         },
         {
-            "name": "receiverLabel",
+            "name": "receiversLabel",
             "type_map": "Event",
             "identifier": 0,
             "foreign_key": 0,

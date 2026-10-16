@@ -1,0 +1,135 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #222;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 16px;
+  background: #1e293b;
+  color: #fff;
+}
+header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+nav { display: flex; gap: 4px; }
+.tab {
+  background: transparent;
+  color: #cbd5e1;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.tab:hover { background: #334155; color: #fff; }
+.tab.active { background: #2563eb; color: #fff; }
+
+main { flex: 1; overflow: hidden; }
+.panel { display: none; height: 100%; flex-direction: column; }
+.panel.active { display: flex; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+.toolbar button, .toolbar select, .toolbar input {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.toolbar button {
+  background: #2563eb; color: #fff; border-color: #2563eb; cursor: pointer;
+}
+.toolbar button:hover { background: #1d4ed8; }
+.status { color: #64748b; font-size: 13px; }
+.hint { color: #64748b; font-size: 13px; padding: 0 16px; }
+code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+
+.graph-wrap { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+#cy, #cy-query { flex: 1; background: #f8fafc; }
+
+#sidebar, #sidebar-query {
+  width: 320px;
+  border-left: 1px solid #e2e8f0;
+  padding: 14px;
+  overflow: auto;
+  background: #fff;
+}
+#sidebar.hidden, #sidebar-query.hidden { display: none; }
+#sidebar h3, #sidebar-query h3 { margin-top: 0; font-size: 15px; }
+.node-props { width: 100%; border-collapse: collapse; font-size: 13px; }
+.node-props td { border-bottom: 1px solid #f1f5f9; padding: 5px 6px; vertical-align: top; }
+.node-props td:first-child { font-weight: 600; color: #475569; width: 40%; word-break: break-word; }
+
+textarea {
+  width: calc(100% - 32px);
+  margin: 12px 16px;
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  resize: none;
+}
+#query-input { min-height: 160px; flex: 0 0 auto; height: 200px; }
+
+.config-grid { display: flex; flex: 1; gap: 0; overflow: hidden; }
+.config-grid > div { flex: 1; display: flex; flex-direction: column; }
+.config-grid h4 { margin: 12px 16px 0; }
+
+.sep { color: #cbd5e1; }
+
+.ctxmenu {
+  position: fixed;
+  z-index: 1000;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  min-width: 170px;
+  overflow: hidden;
+}
+.ctxmenu.hidden { display: none; }
+.ctxmenu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+}
+.ctxmenu button:hover { background: #eff6ff; }
+
+.config-forms { flex: 1; overflow: auto; padding: 0 16px 16px; }
+.config-forms h4 { margin: 16px 0 6px; }
+.config-forms h4 small { color: #94a3b8; font-weight: normal; }
+.form-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.form-table th, .form-table td {
+  border: 1px solid #e2e8f0; padding: 4px 6px; text-align: left; vertical-align: middle;
+}
+.form-table th { background: #f1f5f9; font-weight: 600; position: sticky; top: 0; }
+.form-table tr.skipped { opacity: 0.45; }
+.form-table input[type="text"], .form-table select { width: 100%; box-sizing: border-box; padding: 3px 4px; }
+.form-table .fieldname { font-weight: 600; color: #334155; white-space: nowrap; }
+.form-table .sample { color: #94a3b8; font-size: 11px; }
+.form-table td.center { text-align: center; }
+
+#import-summary {
+  margin: 0 16px; padding: 12px; background: #f8fafc;
+  border: 1px solid #e2e8f0; border-radius: 8px; overflow: auto;
+  font-size: 13px;
+}

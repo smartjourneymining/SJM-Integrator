@@ -35,7 +35,7 @@
             "actor_type": "Sender"
         },
         {
-            "name": "initiatorLabel",
+            "name": "initiatorsLabel",
             "type_map": "Event",
             "identifier": 0,
             "foreign_key": 0,
@@ -49,14 +49,6 @@
             "foreign_key": 1,
             "to_type": "Entity",
             "actor_type": "Receiver"
-        },
-        {
-            "name": "receiversLabel",
-            "type_map": "Event",
-            "identifier": 0,
-            "foreign_key": 0,
-            "to_type": "",
-            "actor_type": "Field belongs"
         },
         {
             "name": "channel",
@@ -107,7 +99,7 @@
             "actor_type": "Field belongs"
         },
         {
-            "name": "receiverLabel",
+            "name": "receiversLabel",
             "type_map": "Event",
             "identifier": 0,
             "foreign_key": 0,
